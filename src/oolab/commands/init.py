@@ -308,6 +308,9 @@ def install_requirements(
     """Install requirements from framework, enterprise, and tenants."""
     python_bin = workspace_path / venv_name / "bin" / "python"
 
+    # Ensure setuptools with pkg_resources (required by Odoo, removed in setuptools>=82)
+    run_cmd(f"uv pip install 'setuptools<81' --python {python_bin}", timeout=60)
+
     # Collect all requirements files
     req_sources: list[tuple[Path, str]] = []
 
