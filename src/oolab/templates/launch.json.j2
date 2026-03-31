@@ -1,0 +1,91 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Odoo - Community",
+      "type": "debugpy",
+      "request": "launch",
+      "envFile": "${workspaceFolder}/.env",
+      "python": "${workspaceFolder}/{{ venv_name }}/bin/python",
+      "program": "${workspaceFolder}/odoo/odoo-bin",
+      "preLaunchTask": "docker-compose-up",
+      "console": "integratedTerminal",
+      "args": [
+        "--config=${workspaceFolder}/config/odoo/odoo.conf",
+        "--addons-path=${workspaceFolder}/odoo/addons",
+        "--db-filter=community-test"
+      ]
+    },
+{% for tenant in tenants %}
+    {
+      "name": "{{ tenant.display_name }}",
+      "type": "debugpy",
+      "request": "launch",
+      "envFile": "${workspaceFolder}/.env",
+      "python": "${workspaceFolder}/{{ venv_name }}/bin/python",
+      "program": "${workspaceFolder}/odoo/odoo-bin",
+      "preLaunchTask": "docker-compose-up",
+      "console": "integratedTerminal",
+      "args": [
+        "--config=${workspaceFolder}/config/odoo/odoo.conf",
+        "--addons-path=${workspaceFolder}/odoo/addons{% if tenant.enterprise %},${workspaceFolder}/enterprise{% endif %},${workspaceFolder}/tenants/{{ tenant.name }}",
+        "--dev=reload,qweb,werkzeug,xml",
+        "--db-filter={{ tenant.db_filter }}"
+      ]
+    },
+{% endfor %}
+    {
+      "name": "Odoo - Shell",
+      "type": "debugpy",
+      "request": "launch",
+      "envFile": "${workspaceFolder}/.env",
+      "python": "${workspaceFolder}/{{ venv_name }}/bin/python",
+      "program": "${workspaceFolder}/odoo/odoo-bin",
+      "preLaunchTask": "docker-compose-up",
+      "console": "integratedTerminal",
+      "args": [
+        "shell",
+        "--config=${workspaceFolder}/config/odoo/odoo.conf",
+        "--addons-path=${workspaceFolder}/odoo/addons{% if has_enterprise %},${workspaceFolder}/enterprise{% endif %}{% for tenant in tenants %},${workspaceFolder}/tenants/{{ tenant.name }}{% endfor %}"
+      ]
+    },
+    {
+      "name": "Odoo - Update module",
+      "type": "debugpy",
+      "request": "launch",
+      "envFile": "${workspaceFolder}/.env",
+      "python": "${workspaceFolder}/{{ venv_name }}/bin/python",
+      "program": "${workspaceFolder}/odoo/odoo-bin",
+      "preLaunchTask": "docker-compose-up",
+      "console": "integratedTerminal",
+      "args": [
+        "-c",
+        "${workspaceFolder}/config/odoo/odoo.conf",
+        "--addons-path=${workspaceFolder}/odoo/addons{% if has_enterprise %},${workspaceFolder}/enterprise{% endif %}{% for tenant in tenants %},${workspaceFolder}/tenants/{{ tenant.name }}{% endfor %}",
+        "-d",
+        "community-test",
+        "-u",
+        "module_name"
+      ]
+    },
+    {
+      "name": "Odoo - Install module",
+      "type": "debugpy",
+      "request": "launch",
+      "envFile": "${workspaceFolder}/.env",
+      "python": "${workspaceFolder}/{{ venv_name }}/bin/python",
+      "program": "${workspaceFolder}/odoo/odoo-bin",
+      "preLaunchTask": "docker-compose-up",
+      "console": "integratedTerminal",
+      "args": [
+        "-c",
+        "${workspaceFolder}/config/odoo/odoo.conf",
+        "--addons-path=${workspaceFolder}/odoo/addons{% if has_enterprise %},${workspaceFolder}/enterprise{% endif %}{% for tenant in tenants %},${workspaceFolder}/tenants/{{ tenant.name }}{% endfor %}",
+        "-d",
+        "community-test",
+        "-i",
+        "module_name"
+      ]
+    }
+  ]
+}

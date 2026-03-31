@@ -1,0 +1,12 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/{{ venv_name }}/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvInCurrentTerminal": true,
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/odoo"{% if has_enterprise %},
+    "${workspaceFolder}/enterprise"{% endif %}{% for tenant in tenants %},
+    "${workspaceFolder}/tenants/{{ tenant.name }}"{% endfor %}
+
+  ],
+  "terminal.integrated.inheritEnv": true
+}

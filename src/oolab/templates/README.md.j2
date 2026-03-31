@@ -1,0 +1,125 @@
+# Odoo Launchpad
+
+Workspace de desarrollo Odoo generado con [oolab](https://github.com/ikusolutions/odoo-lab) por [IKU Solutions](https://www.iku.solutions).
+
+## Estructura
+
+```
+odoo-launchpad/
+├── odoo/                  # Framework Odoo Community {{ odoo_version }}.0
+{% if has_enterprise %}├── enterprise/            # Addons Enterprise (compartido)
+{% endif %}├── tenants/               # Proyectos de clientes
+{% for tenant in tenants %}│   ├── {{ tenant.name }}/{{ "  # " + tenant.display_name + (" (Enterprise)" if tenant.enterprise else " (Community)") }}
+{% endfor %}├── config/
+│   └── odoo/odoo.conf     # Configuracion central de Odoo
+├── docker/
+│   └── docker-compose.yaml # PostgreSQL + Nginx
+├── .vscode/
+│   ├── launch.json         # Configuraciones de debug (F5)
+│   └── settings.json       # Python paths y venv
+├── {{ venv_name }}/       # Entorno virtual Python {{ python_version }}
+├── .env                    # Variables de entorno
+└── oolab.yaml              # Configuracion del workspace (fuente de verdad)
+```
+
+## Como ejecutar
+
+### 1. Abrir en VSCode
+
+```bash
+code .
+```
+
+### 2. Iniciar servicios Docker
+
+Los servicios (PostgreSQL, Nginx) se inician automaticamente al hacer debug (preLaunchTask).
+Para iniciarlos manualmente:
+
+```bash
+docker compose -f docker/docker-compose.yaml up -d
+```
+
+### 3. Ejecutar Odoo (Debug con F5)
+
+Presiona **F5** en VSCode y selecciona una configuracion:
+
+| Configuracion | Descripcion | db-filter |
+|---------------|-------------|-----------|
+| **Odoo - Community** | Arranca Odoo con addons base | `community-test` |
+{% for tenant in tenants %}| **{{ tenant.display_name }}** | Proyecto {{ tenant.display_name }}{{ " + Enterprise" if tenant.enterprise else "" }} | `{{ tenant.db_filter }}` |
+{% endfor %}| **Odoo - Shell** | Consola interactiva de Odoo | — |
+| **Odoo - Update module** | Actualiza un modulo (`-u module_name`) | `community-test` |
+| **Odoo - Install module** | Instala un modulo (`-i module_name`) | `community-test` |
+
+> **Nota:** Para **Update/Install module**, edita `module_name` y el nombre de la base de datos en `.vscode/launch.json` antes de ejecutar.
+
+### 4. Acceder a Odoo
+
+Una vez ejecutado, Odoo estara disponible en:
+
+- **Directo**: http://localhost:8069
+- **Via Nginx**: http://odoo.localhost (si Nginx esta activo)
+
+La primera vez veras el **Database Manager**. Crea una nueva base de datos con el nombre del `db-filter` de tu proyecto (ver tabla arriba). Tambien puedes acceder al manager en: http://localhost:8069/web/database/manager
+
+### 5. Activar entorno virtual (terminal)
+
+Si necesitas ejecutar comandos Python o Odoo directamente desde la terminal:
+
+**macOS / Linux:**
+
+```bash
+source {{ venv_name }}/bin/activate
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\\{{ venv_name }}\Scripts\Activate.ps1
+```
+
+**Windows (CMD):**
+
+```cmd
+{{ venv_name }}\Scripts\activate.bat
+```
+
+## Gestionar proyectos
+
+```bash
+# Agregar un nuevo proyecto
+oolab add
+
+# Listar proyectos
+oolab list
+
+# Eliminar un proyecto
+oolab remove <nombre>
+
+# Regenerar configuraciones despues de editar oolab.yaml
+oolab generate
+
+# Verificar dependencias del sistema
+oolab doctor
+```
+
+## oolab.yaml
+
+Este archivo es la **fuente de verdad** del workspace. Contiene:
+
+- Version de Odoo y Python
+- Configuracion de Enterprise
+- Lista de tenants/proyectos con sus branches y tipo (Community/Enterprise)
+- Configuracion de Docker (PostgreSQL, Nginx)
+
+Cuando ejecutas `oolab generate`, todos los archivos de configuracion (.vscode, docker, odoo.conf, etc.) se regeneran a partir de este archivo. **No edites los archivos generados directamente** — edita `oolab.yaml` y ejecuta `oolab generate`.
+
+## Mas informacion
+
+- [oolab CLI - Documentacion](https://github.com/ikusolutions/odoo-lab)
+- [Odoo Developer Documentation](https://www.odoo.com/documentation)
+- [OCA - Odoo Community Association](https://odoo-community.org)
+
+---
+
+Generado con [oolab](https://github.com/ikusolutions/odoo-lab) v{{ oolab_version }} | [IKU Solutions SAS](https://www.iku.solutions)
