@@ -43,16 +43,14 @@ def slugify(text: str) -> str:
 
 
 def _run(
-    cmd: str, cwd: str | None = None, timeout: int = 120
+    cmd: list[str], cwd: str | None = None, timeout: int = 120
 ) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        cmd, shell=True, cwd=cwd, capture_output=True, text=True, timeout=timeout
-    )
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
 
 
 def get_current_branch(repo_path: Path) -> str:
     """Get the current git branch of a repo."""
-    result = _run("git rev-parse --abbrev-ref HEAD", cwd=str(repo_path))
+    result = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(repo_path))
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
@@ -70,21 +68,21 @@ def ensure_branch(repo_path: Path, target_branch: str, label: str):
     with console.status(f"  Cambiando {label} a {target_branch}...", spinner="dots"):
         # Fetch only the target branch (shallow to keep it fast)
         _run(
-            f"git remote set-branches origin {target_branch}",
+            ["git", "remote", "set-branches", "origin", target_branch],
             cwd=str(repo_path),
             timeout=30,
         )
         _run(
-            f"git fetch --depth 1 origin {target_branch}",
+            ["git", "fetch", "--depth", "1", "origin", target_branch],
             cwd=str(repo_path),
             timeout=300,
         )
-        result = _run(f"git checkout {target_branch}", cwd=str(repo_path))
+        result = _run(["git", "checkout", target_branch], cwd=str(repo_path))
 
         if result.returncode != 0:
             # Try creating local tracking branch
             result = _run(
-                f"git checkout -b {target_branch} origin/{target_branch}",
+                ["git", "checkout", "-b", target_branch, f"origin/{target_branch}"],
                 cwd=str(repo_path),
             )
 
@@ -257,8 +255,16 @@ def add(
     if url:
         with console.status(f"  Clonando {name}...", spinner="dots"):
             result = subprocess.run(
-                f"git clone --depth 1 --branch {branch} {url} {tenant_path}",
-                shell=True,
+                [
+                    "git",
+                    "clone",
+                    "--depth",
+                    "1",
+                    "--branch",
+                    branch,
+                    url,
+                    str(tenant_path),
+                ],
                 capture_output=True,
                 text=True,
                 timeout=300,

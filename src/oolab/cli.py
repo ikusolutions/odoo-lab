@@ -54,10 +54,7 @@ def main(
     """Odoo Lab - CLI scaffolder for multi-project Odoo development workspaces by IKU Solutions."""
 
 
-# Import and register commands
-from oolab.commands import add as _add  # noqa: E402, F401
-from oolab.commands import doctor as _doctor  # noqa: E402, F401
-from oolab.commands import generate as _generate  # noqa: E402, F401
-from oolab.commands import init as _init  # noqa: E402, F401
-from oolab.commands import list as _list  # noqa: E402, F401
-from oolab.commands import remove as _remove  # noqa: E402, F401
+# Import and register commands (side-effect: each module decorates app with @app.command)
+from oolab.commands import add, doctor, generate, init, list, remove, reset_pwd
+
+__all__ = ["app", "add", "doctor", "generate", "init", "list", "remove", "reset_pwd"]

@@ -30,11 +30,9 @@ WORKSPACE_DIR_NAME = "odoo-launchpad"
 
 
 def run_cmd(
-    cmd: str, cwd: str | None = None, timeout: int = 600
+    cmd: list[str], cwd: str | None = None, timeout: int = 600
 ) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        cmd, shell=True, cwd=cwd, capture_output=True, text=True, timeout=timeout
-    )
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
 
 
 def check_system_deps() -> bool:
@@ -155,7 +153,7 @@ def ask_first_tenant(odoo_version: str, enterprise_enabled: bool) -> Tenant | No
 def clone_repo(url: str, dest: Path, branch: str, label: str) -> bool:
     with console.status(f"  Clonando {label}...", spinner="dots"):
         result = run_cmd(
-            f"git clone --depth 1 --branch {branch} {url} {dest}",
+            ["git", "clone", "--depth", "1", "--branch", branch, url, str(dest)],
             timeout=300,
         )
     if result.returncode == 0:
@@ -187,7 +185,7 @@ def setup_venv(workspace_path: Path, venv_name: str, python_version: str) -> boo
         f"  Creando {venv_name} (Python {python_version})...", spinner="dots"
     ):
         result = run_cmd(
-            f"uv venv --python {python_version} {venv_path}",
+            ["uv", "venv", "--python", python_version, str(venv_path)],
             cwd=str(workspace_path),
         )
     if result.returncode == 0:
@@ -227,7 +225,7 @@ def _pip_install(requirements: Path, python_bin: Path, label: str) -> bool:
     """Install a requirements file with multiple fallback strategies."""
     # Attempt 1: uv direct
     result = run_cmd(
-        f"uv pip install -r {requirements} --python {python_bin}",
+        ["uv", "pip", "install", "-r", str(requirements), "--python", str(python_bin)],
         timeout=600,
     )
     if result.returncode == 0:
@@ -238,7 +236,7 @@ def _pip_install(requirements: Path, python_bin: Path, label: str) -> bool:
     patched = _make_patched_requirements(requirements)
     try:
         result = run_cmd(
-            f"uv pip install -r {patched} --python {python_bin}",
+            ["uv", "pip", "install", "-r", str(patched), "--python", str(python_bin)],
             timeout=600,
         )
         if result.returncode == 0:
@@ -271,7 +269,16 @@ def _pip_install(requirements: Path, python_bin: Path, label: str) -> bool:
 
         try:
             r = run_cmd(
-                f"uv pip install -r {tmp_path} --python {python_bin}", timeout=120
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "-r",
+                    str(tmp_path),
+                    "--python",
+                    str(python_bin),
+                ],
+                timeout=120,
             )
             if r.returncode != 0:
                 # Try binary alternative
@@ -279,7 +286,15 @@ def _pip_install(requirements: Path, python_bin: Path, label: str) -> bool:
                     alt_line = line.replace(pkg_name, BINARY_ALTERNATIVES[pkg_name])
                     tmp_path.write_text(alt_line + "\n")
                     r2 = run_cmd(
-                        f"uv pip install -r {tmp_path} --python {python_bin}",
+                        [
+                            "uv",
+                            "pip",
+                            "install",
+                            "-r",
+                            str(tmp_path),
+                            "--python",
+                            str(python_bin),
+                        ],
                         timeout=120,
                     )
                     if r2.returncode == 0:
@@ -309,7 +324,10 @@ def install_requirements(
     python_bin = workspace_path / venv_name / "bin" / "python"
 
     # Ensure setuptools with pkg_resources (required by Odoo, removed in setuptools>=82)
-    run_cmd(f"uv pip install 'setuptools<81' --python {python_bin}", timeout=60)
+    run_cmd(
+        ["uv", "pip", "install", "setuptools<81", "--python", str(python_bin)],
+        timeout=60,
+    )
 
     # Collect all requirements files
     req_sources: list[tuple[Path, str]] = []

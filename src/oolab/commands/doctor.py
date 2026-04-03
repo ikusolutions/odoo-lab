@@ -11,31 +11,31 @@ console = Console()
 DEPENDENCIES = [
     {
         "name": "git",
-        "cmd": "git --version",
+        "cmd": ["git", "--version"],
         "required": True,
         "hint": "Install git: https://git-scm.com/downloads",
     },
     {
         "name": "docker",
-        "cmd": "docker --version",
+        "cmd": ["docker", "--version"],
         "required": True,
         "hint": "Install Docker: https://docs.docker.com/get-docker/",
     },
     {
         "name": "docker compose",
-        "cmd": "docker compose version",
+        "cmd": ["docker", "compose", "version"],
         "required": True,
         "hint": "Docker Compose v2 comes with Docker Desktop. Update Docker.",
     },
     {
         "name": "uv",
-        "cmd": "uv --version",
+        "cmd": ["uv", "--version"],
         "required": True,
         "hint": "Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh",
     },
     {
         "name": "python3",
-        "cmd": "python3 --version",
+        "cmd": ["python3", "--version"],
         "required": True,
         "hint": "Install Python 3: https://www.python.org/downloads/",
     },
@@ -45,9 +45,7 @@ DEPENDENCIES = [
 def check_dependency(dep: dict) -> tuple[bool, str]:
     """Check if a dependency is available. Returns (ok, version_string)."""
     try:
-        result = subprocess.run(
-            dep["cmd"], shell=True, capture_output=True, text=True, timeout=10
-        )
+        result = subprocess.run(dep["cmd"], capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
             version = result.stdout.strip() or result.stderr.strip()
             return True, version
