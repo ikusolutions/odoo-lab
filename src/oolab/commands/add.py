@@ -20,7 +20,7 @@ from oolab.commands.init import (
     install_requirements,
     setup_venv,
 )
-from oolab.config import Tenant, WorkspaceConfig, find_workspace
+from oolab.config import Tenant, WorkspaceConfig, find_workspace, get_venv_python
 from oolab.scaffold import scaffold_tenant
 from oolab.versions import (
     available_versions,
@@ -134,7 +134,7 @@ def ensure_enterprise(workspace_path: Path, config: WorkspaceConfig, branch: str
     # Install enterprise requirements
     ent_req = ent_path / "requirements.txt"
     if ent_req.exists():
-        python_bin = workspace_path / config.venv_name / "bin" / "python"
+        python_bin = get_venv_python(workspace_path, config.venv_name)
         if python_bin.exists():
             with console.status(
                 "  Instalando dependencias de Enterprise...", spinner="dots"
@@ -278,7 +278,7 @@ def add(
         # Install tenant requirements if present
         tenant_req = tenant_path / "requirements.txt"
         if tenant_req.exists():
-            python_bin = workspace_path / config.venv_name / "bin" / "python"
+            python_bin = get_venv_python(workspace_path, config.venv_name)
             if python_bin.exists():
                 with console.status(
                     f"  Instalando dependencias de {display_name}...", spinner="dots"

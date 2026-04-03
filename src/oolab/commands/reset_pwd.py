@@ -4,7 +4,7 @@ import typer
 from rich.console import Console
 
 from oolab.cli import app
-from oolab.config import WorkspaceConfig, find_workspace
+from oolab.config import WorkspaceConfig, find_workspace, get_venv_python
 
 console = Console()
 
@@ -26,7 +26,7 @@ def reset_pwd(
 
     config = WorkspaceConfig.load(workspace_path)
 
-    python_bin = workspace_path / config.venv_name / "bin" / "python"
+    python_bin = get_venv_python(workspace_path, config.venv_name)
     odoo_bin = workspace_path / "odoo" / "odoo-bin"
     odoo_conf = workspace_path / "config" / "odoo" / "odoo.conf"
 

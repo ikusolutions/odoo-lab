@@ -1,6 +1,6 @@
 [project]
 name = "odoo-lab"
-version = "0.2.0"
+version = "0.2.1"
 description = "CLI scaffolder for multi-project Odoo development workspaces"
 requires-python = ">=3.10"
 license = "LGPL-3.0-or-later"

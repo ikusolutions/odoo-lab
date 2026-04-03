@@ -234,17 +234,23 @@ def scaffold_tenant(tenant_path: Path, tenant_name: str, odoo_version: str):
     tenant_path.mkdir(parents=True, exist_ok=True)
 
     # Core files
-    (tenant_path / ".editorconfig").write_text(EDITORCONFIG)
-    (tenant_path / ".gitignore").write_text(GITIGNORE_OCA)
-    (tenant_path / ".gitattributes").write_text(GITATTRIBUTES)
-    (tenant_path / "LICENSE").write_text(LICENSE_LGPL3)
-    (tenant_path / "README.md").write_text(_readme(tenant_name, odoo_branch))
-    (tenant_path / "requirements.txt").write_text("")
+    (tenant_path / ".editorconfig").write_text(EDITORCONFIG, encoding="utf-8")
+    (tenant_path / ".gitignore").write_text(GITIGNORE_OCA, encoding="utf-8")
+    (tenant_path / ".gitattributes").write_text(GITATTRIBUTES, encoding="utf-8")
+    (tenant_path / "LICENSE").write_text(LICENSE_LGPL3, encoding="utf-8")
+    (tenant_path / "README.md").write_text(
+        _readme(tenant_name, odoo_branch), encoding="utf-8"
+    )
+    (tenant_path / "requirements.txt").write_text("", encoding="utf-8")
 
     # Quality tools
-    (tenant_path / ".pre-commit-config.yaml").write_text(_pre_commit_config(odoo_major))
-    (tenant_path / ".pylintrc").write_text(_pylintrc())
+    (tenant_path / ".pre-commit-config.yaml").write_text(
+        _pre_commit_config(odoo_major), encoding="utf-8"
+    )
+    (tenant_path / ".pylintrc").write_text(_pylintrc(), encoding="utf-8")
 
     # Ruff for 17.0+
     if odoo_major >= 17:
-        (tenant_path / ".ruff.toml").write_text(_ruff_toml(odoo_major))
+        (tenant_path / ".ruff.toml").write_text(
+            _ruff_toml(odoo_major), encoding="utf-8"
+        )

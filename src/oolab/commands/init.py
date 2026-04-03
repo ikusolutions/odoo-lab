@@ -13,7 +13,7 @@ from rich.prompt import Confirm, Prompt
 from oolab.cli import app, print_banner
 from oolab.commands.doctor import DEPENDENCIES, check_dependency, offer_install_uv
 from oolab.commands.generate import generate_all
-from oolab.config import Tenant, WorkspaceConfig
+from oolab.config import Tenant, WorkspaceConfig, get_venv_python
 from oolab.scaffold import scaffold_tenant
 from oolab.versions import (
     available_versions,
@@ -206,7 +206,7 @@ BINARY_ALTERNATIVES = {
 
 def _make_patched_requirements(requirements: Path) -> Path:
     """Create a temp copy of requirements replacing problematic packages with binary alternatives."""
-    content = requirements.read_text()
+    content = requirements.read_text(encoding="utf-8")
     for src, binary in BINARY_ALTERNATIVES.items():
         # Replace e.g. "psycopg2==2.9.5" with "psycopg2-binary==2.9.5"
         content = re.sub(
@@ -284,7 +284,7 @@ def _pip_install(requirements: Path, python_bin: Path, label: str) -> bool:
                 # Try binary alternative
                 if pkg_name in BINARY_ALTERNATIVES:
                     alt_line = line.replace(pkg_name, BINARY_ALTERNATIVES[pkg_name])
-                    tmp_path.write_text(alt_line + "\n")
+                    tmp_path.write_text(alt_line + "\n", encoding="utf-8")
                     r2 = run_cmd(
                         [
                             "uv",
@@ -321,7 +321,7 @@ def install_requirements(
     workspace_path: Path, venv_name: str, config: WorkspaceConfig
 ) -> bool:
     """Install requirements from framework, enterprise, and tenants."""
-    python_bin = workspace_path / venv_name / "bin" / "python"
+    python_bin = get_venv_python(workspace_path, venv_name)
 
     # Ensure setuptools with pkg_resources (required by Odoo, removed in setuptools>=82)
     run_cmd(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -133,7 +134,7 @@ class WorkspaceConfig:
 
     def save(self, workspace_path: Path):
         config_path = workspace_path / CONFIG_FILENAME
-        with open(config_path, "w") as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(
                 self.to_dict(),
                 f,
@@ -147,9 +148,19 @@ class WorkspaceConfig:
         config_path = workspace_path / CONFIG_FILENAME
         if not config_path.exists():
             raise FileNotFoundError(f"Config not found: {config_path}")
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return cls.from_dict(data)
+
+
+IS_WINDOWS = sys.platform == "win32"
+
+
+def get_venv_python(workspace_path: Path, venv_name: str) -> Path:
+    """Devuelve el path al ejecutable Python del venv, cross-platform."""
+    if IS_WINDOWS:
+        return workspace_path / venv_name / "Scripts" / "python.exe"
+    return workspace_path / venv_name / "bin" / "python"
 
 
 def find_workspace() -> Path:

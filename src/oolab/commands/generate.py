@@ -1,4 +1,5 @@
 import platform
+import sys
 from pathlib import Path
 
 import typer
@@ -35,7 +36,7 @@ def render_and_write(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     template = env.get_template(template_name)
     content = template.render(**context)
-    output_path.write_text(content)
+    output_path.write_text(content, encoding="utf-8")
 
 
 def generate_all(workspace_path: Path, config: WorkspaceConfig):
@@ -62,6 +63,7 @@ def generate_all(workspace_path: Path, config: WorkspaceConfig):
         "nginx_http_port": config.nginx_http_port,
         "tenants": [t.to_dict() for t in config.tenants],
         "platform": get_platform_arch(),
+        "is_windows": sys.platform == "win32",
         "oolab_version": oolab_version,
     }
 

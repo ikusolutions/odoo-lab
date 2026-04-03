@@ -1,5 +1,5 @@
 {
-  "python.defaultInterpreterPath": "${workspaceFolder}/{{ venv_name }}/bin/python",
+  "python.defaultInterpreterPath": "${workspaceFolder}/{{ venv_name }}/{% if is_windows %}Scripts/python.exe{% else %}bin/python{% endif %}",
   "python.terminal.activateEnvironment": true,
   "python.terminal.activateEnvInCurrentTerminal": true,
   "python.analysis.extraPaths": [
