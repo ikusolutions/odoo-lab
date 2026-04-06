@@ -1,8 +1,3 @@
-import re
-import shutil
-import subprocess
-import tempfile
-import unicodedata
 from pathlib import Path
 
 import typer
@@ -13,8 +8,10 @@ from rich.prompt import Confirm, Prompt
 from oolab.cli import app, print_banner
 from oolab.commands.doctor import DEPENDENCIES, check_dependency, offer_install_uv
 from oolab.commands.generate import generate_all
-from oolab.config import Tenant, WorkspaceConfig, get_venv_python
+from oolab.config import Tenant, WorkspaceConfig
 from oolab.scaffold import scaffold_tenant
+from oolab.utils import clone_repo, copy_local, slugify
+from oolab.venv import install_requirements, setup_venv
 from oolab.versions import (
     available_versions,
     get_branch_name,
@@ -27,12 +24,6 @@ from oolab.versions import (
 console = Console()
 
 WORKSPACE_DIR_NAME = "odoo-launchpad"
-
-
-def run_cmd(
-    cmd: list[str], cwd: str | None = None, timeout: int = 600
-) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
 
 
 def check_system_deps() -> bool:
@@ -99,15 +90,6 @@ def ask_enterprise() -> tuple[bool, str, str]:
         return True, "local", path
 
 
-def slugify(text: str) -> str:
-    """Convert text to a URL/filesystem-safe slug."""
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-    text = text.lower().strip()
-    text = re.sub(r"[^\w\s-]", "", text)
-    text = re.sub(r"[-\s]+", "-", text)
-    return text.strip("-")
-
-
 def ask_first_tenant(odoo_version: str, enterprise_enabled: bool) -> Tenant | None:
     """Ask if user wants to add a first tenant project."""
     add = Confirm.ask("\n  ¿Agregar un proyecto de cliente ahora?", default=False)
@@ -148,221 +130,6 @@ def ask_first_tenant(odoo_version: str, enterprise_enabled: bool) -> Tenant | No
             db_filter=name,
             enterprise=is_enterprise,
         )
-
-
-def clone_repo(url: str, dest: Path, branch: str, label: str) -> bool:
-    with console.status(f"  Clonando {label}...", spinner="dots"):
-        result = run_cmd(
-            ["git", "clone", "--depth", "1", "--branch", branch, url, str(dest)],
-            timeout=300,
-        )
-    if result.returncode == 0:
-        console.print(f"  [green]✓[/green] {label} clonado correctamente")
-        return True
-    else:
-        console.print(f"  [red]✗[/red] Error clonando {label}: {result.stderr.strip()}")
-        return False
-
-
-def copy_local(src: str, dest: Path, label: str) -> bool:
-    src_path = Path(src).expanduser().resolve()
-    if not src_path.exists():
-        console.print(f"  [red]✗[/red] Path no existe: {src_path}")
-        return False
-    with console.status(f"  Copiando {label}...", spinner="dots"):
-        shutil.copytree(src_path, dest, dirs_exist_ok=True)
-    console.print(f"  [green]✓[/green] {label} copiado")
-    return True
-
-
-def setup_venv(workspace_path: Path, venv_name: str, python_version: str) -> bool:
-    venv_path = workspace_path / venv_name
-    if venv_path.exists():
-        console.print(f"  [green]✓[/green] {venv_name} ya existe, reutilizando")
-        return True
-
-    with console.status(
-        f"  Creando {venv_name} (Python {python_version})...", spinner="dots"
-    ):
-        result = run_cmd(
-            ["uv", "venv", "--python", python_version, str(venv_path)],
-            cwd=str(workspace_path),
-        )
-    if result.returncode == 0:
-        console.print(
-            f"  [green]✓[/green] {venv_name} creado (Python {python_version})"
-        )
-        return True
-    else:
-        console.print(f"  [red]✗[/red] Error creando venv: {result.stderr.strip()}")
-        return False
-
-
-# Packages that need C libs and have known binary wheel alternatives
-BINARY_ALTERNATIVES = {
-    "psycopg2": "psycopg2-binary",
-}
-
-
-def _make_patched_requirements(requirements: Path) -> Path:
-    """Create a temp copy of requirements replacing problematic packages with binary alternatives."""
-    content = requirements.read_text(encoding="utf-8")
-    for src, binary in BINARY_ALTERNATIVES.items():
-        # Replace e.g. "psycopg2==2.9.5" with "psycopg2-binary==2.9.5"
-        content = re.sub(
-            rf"^{re.escape(src)}(\s*[>=<~!].*)?$",
-            lambda m, b=binary: f"{b}{m.group(1) or ''}",
-            content,
-            flags=re.MULTILINE,
-        )
-    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
-    tmp.write(content)
-    tmp.close()
-    return Path(tmp.name)
-
-
-def _pip_install(requirements: Path, python_bin: Path, label: str) -> bool:
-    """Install a requirements file with multiple fallback strategies."""
-    # Attempt 1: uv direct
-    result = run_cmd(
-        ["uv", "pip", "install", "-r", str(requirements), "--python", str(python_bin)],
-        timeout=600,
-    )
-    if result.returncode == 0:
-        return True
-
-    # Attempt 2: patched requirements (binary alternatives for problematic C packages)
-    console.print(f"  [yellow]⚠[/yellow] Reintentando {label} con paquetes binarios...")
-    patched = _make_patched_requirements(requirements)
-    try:
-        result = run_cmd(
-            ["uv", "pip", "install", "-r", str(patched), "--python", str(python_bin)],
-            timeout=600,
-        )
-        if result.returncode == 0:
-            return True
-    finally:
-        patched.unlink(missing_ok=True)
-
-    # Attempt 3: line by line using temp files (avoids shell quoting issues with markers)
-    console.print(f"  [yellow]⚠[/yellow] Instalando {label} paquete por paquete...")
-    req_content = requirements.read_text()
-    failed = []
-    seen = set()
-
-    for line in req_content.strip().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or line.startswith("-"):
-            continue
-
-        # Extract package name for dedup/display
-        pkg_part = line.split(";")[0].split("#")[0].strip()
-        pkg_name = re.split(r"[>=<!\[~]", pkg_part)[0].strip()
-        if not pkg_name:
-            continue
-
-        # Write single line to temp file to avoid shell quoting issues
-        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
-        tmp.write(line + "\n")
-        tmp.close()
-        tmp_path = Path(tmp.name)
-
-        try:
-            r = run_cmd(
-                [
-                    "uv",
-                    "pip",
-                    "install",
-                    "-r",
-                    str(tmp_path),
-                    "--python",
-                    str(python_bin),
-                ],
-                timeout=120,
-            )
-            if r.returncode != 0:
-                # Try binary alternative
-                if pkg_name in BINARY_ALTERNATIVES:
-                    alt_line = line.replace(pkg_name, BINARY_ALTERNATIVES[pkg_name])
-                    tmp_path.write_text(alt_line + "\n", encoding="utf-8")
-                    r2 = run_cmd(
-                        [
-                            "uv",
-                            "pip",
-                            "install",
-                            "-r",
-                            str(tmp_path),
-                            "--python",
-                            str(python_bin),
-                        ],
-                        timeout=120,
-                    )
-                    if r2.returncode == 0:
-                        continue
-                if pkg_name not in seen:
-                    failed.append(pkg_name)
-                    seen.add(pkg_name)
-        finally:
-            tmp_path.unlink(missing_ok=True)
-
-    if failed:
-        console.print(
-            f"  [yellow]⚠[/yellow] Paquetes no instalados: {', '.join(failed)}"
-        )
-        console.print(
-            "  [dim]  Puede que necesites dependencias del sistema (libpq-dev, libldap2-dev, libsasl2-dev)[/dim]"
-        )
-        return False
-
-    return True
-
-
-def install_requirements(
-    workspace_path: Path, venv_name: str, config: WorkspaceConfig
-) -> bool:
-    """Install requirements from framework, enterprise, and tenants."""
-    python_bin = get_venv_python(workspace_path, venv_name)
-
-    # Ensure setuptools with pkg_resources (required by Odoo, removed in setuptools>=82)
-    run_cmd(
-        ["uv", "pip", "install", "setuptools<81", "--python", str(python_bin)],
-        timeout=60,
-    )
-
-    # Collect all requirements files
-    req_sources: list[tuple[Path, str]] = []
-
-    # 1. Odoo framework
-    odoo_req = workspace_path / "odoo" / "requirements.txt"
-    if odoo_req.exists():
-        req_sources.append((odoo_req, "Odoo framework"))
-
-    # 2. Enterprise
-    if config.enterprise_enabled:
-        ent_req = workspace_path / "enterprise" / "requirements.txt"
-        if ent_req.exists():
-            req_sources.append((ent_req, "Enterprise"))
-
-    # 3. Tenants
-    for tenant in config.tenants:
-        tenant_req = workspace_path / "tenants" / tenant.name / "requirements.txt"
-        if tenant_req.exists():
-            req_sources.append((tenant_req, tenant.display_name))
-
-    if not req_sources:
-        console.print("  [yellow]⚠[/yellow] No se encontraron requirements.txt")
-        return True
-
-    all_ok = True
-    for req_file, label in req_sources:
-        with console.status(f"  Instalando dependencias de {label}...", spinner="dots"):
-            ok = _pip_install(req_file, python_bin, label)
-        if ok:
-            console.print(f"  [green]✓[/green] Dependencias de {label} instaladas")
-        else:
-            all_ok = False
-
-    return all_ok
 
 
 @app.command()
@@ -478,7 +245,6 @@ def init():
     install_requirements(workspace_path, venv_name, config)
 
     # 10. Summary
-    len(config.tenants)
     edition = "Community + Enterprise" if enterprise_enabled else "Community"
 
     summary = f"""

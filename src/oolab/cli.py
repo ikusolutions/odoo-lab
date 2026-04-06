@@ -55,6 +55,18 @@ def main(
 
 
 # Import and register commands (side-effect: each module decorates app with @app.command)
-from oolab.commands import add, doctor, generate, init, list, remove, reset_pwd
+from oolab.commands import (
+    add,
+    doctor,
+    generate,
+    init,
+    list,
+    logs,
+    remove,
+    reset_pwd,
+    start,
+    status,
+    stop,
+)
 
-__all__ = ["app", "add", "doctor", "generate", "init", "list", "remove", "reset_pwd"]
+__all__ = ["app", "add", "doctor", "generate", "init", "list", "logs", "remove", "reset_pwd", "start", "status", "stop"]

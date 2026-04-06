@@ -2,10 +2,6 @@
 odoo-lab (oolab) - Copyright (c) 2026 IKU Solutions SAS
 """
 
-import re
-import shutil
-import subprocess
-import unicodedata
 from pathlib import Path
 
 import typer
@@ -14,14 +10,10 @@ from rich.prompt import Confirm, Prompt
 
 from oolab.cli import app, print_banner
 from oolab.commands.generate import generate_all
-from oolab.commands.init import (
-    _pip_install,
-    clone_repo,
-    install_requirements,
-    setup_venv,
-)
 from oolab.config import Tenant, WorkspaceConfig, find_workspace, get_venv_python
 from oolab.scaffold import scaffold_tenant
+from oolab.utils import clone_repo, copy_local, ensure_branch, slugify
+from oolab.venv import _pip_install, install_requirements, setup_venv
 from oolab.versions import (
     available_versions,
     get_branch_name,
@@ -32,67 +24,6 @@ from oolab.versions import (
 )
 
 console = Console()
-
-
-def slugify(text: str) -> str:
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-    text = text.lower().strip()
-    text = re.sub(r"[^\w\s-]", "", text)
-    text = re.sub(r"[-\s]+", "-", text)
-    return text.strip("-")
-
-
-def _run(
-    cmd: list[str], cwd: str | None = None, timeout: int = 120
-) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
-
-
-def get_current_branch(repo_path: Path) -> str:
-    """Get the current git branch of a repo."""
-    result = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(repo_path))
-    return result.stdout.strip() if result.returncode == 0 else ""
-
-
-def ensure_branch(repo_path: Path, target_branch: str, label: str):
-    """Ensure a git repo is on the correct branch. Fetch and checkout if needed."""
-    current = get_current_branch(repo_path)
-    if current == target_branch:
-        console.print(f"  [green]✓[/green] {label} en branch {target_branch}")
-        return
-
-    console.print(
-        f"  [blue]ℹ[/blue] {label} en branch [yellow]{current}[/yellow], cambiando a [cyan]{target_branch}[/cyan]..."
-    )
-
-    with console.status(f"  Cambiando {label} a {target_branch}...", spinner="dots"):
-        # Fetch only the target branch (shallow to keep it fast)
-        _run(
-            ["git", "remote", "set-branches", "origin", target_branch],
-            cwd=str(repo_path),
-            timeout=30,
-        )
-        _run(
-            ["git", "fetch", "--depth", "1", "origin", target_branch],
-            cwd=str(repo_path),
-            timeout=300,
-        )
-        result = _run(["git", "checkout", target_branch], cwd=str(repo_path))
-
-        if result.returncode != 0:
-            # Try creating local tracking branch
-            result = _run(
-                ["git", "checkout", "-b", target_branch, f"origin/{target_branch}"],
-                cwd=str(repo_path),
-            )
-
-    if result.returncode == 0:
-        console.print(f"  [green]✓[/green] {label} cambiado a branch {target_branch}")
-    else:
-        console.print(
-            f"  [red]✗[/red] No se pudo cambiar {label} a branch {target_branch}"
-        )
-        console.print(f"  [dim]  {result.stderr.strip()}[/dim]")
 
 
 def ensure_enterprise(workspace_path: Path, config: WorkspaceConfig, branch: str):
@@ -121,13 +52,8 @@ def ensure_enterprise(workspace_path: Path, config: WorkspaceConfig, branch: str
         config.enterprise_url = ent_url
     else:
         local_path = Prompt.ask("  Path local de Enterprise")
-        src = Path(local_path).expanduser().resolve()
-        if not src.exists():
-            console.print(f"  [red]✗[/red] Path no existe: {src}")
+        if not copy_local(local_path, ent_path, "Enterprise"):
             return
-        with console.status("  Copiando Enterprise...", spinner="dots"):
-            shutil.copytree(src, ent_path, dirs_exist_ok=True)
-        console.print("  [green]✓[/green] Enterprise copiado")
         config.enterprise_enabled = True
         config.enterprise_source = "local"
 
@@ -253,26 +179,7 @@ def add(
     tenant_path = workspace_path / "tenants" / name
 
     if url:
-        with console.status(f"  Clonando {name}...", spinner="dots"):
-            result = subprocess.run(
-                [
-                    "git",
-                    "clone",
-                    "--depth",
-                    "1",
-                    "--branch",
-                    branch,
-                    url,
-                    str(tenant_path),
-                ],
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
-        if result.returncode == 0:
-            console.print(f"  [green]✓[/green] {name} clonado en tenants/{name}/")
-        else:
-            console.print(f"  [red]✗[/red] Error clonando: {result.stderr.strip()}")
+        if not clone_repo(url, tenant_path, branch, name):
             raise typer.Exit(1) from None
 
         # Install tenant requirements if present

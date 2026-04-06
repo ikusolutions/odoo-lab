@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 from oolab.cli import app
+from oolab.utils import run_cmd
 
 console = Console()
 
@@ -45,7 +46,7 @@ DEPENDENCIES = [
 def check_dependency(dep: dict) -> tuple[bool, str]:
     """Check if a dependency is available. Returns (ok, version_string)."""
     try:
-        result = subprocess.run(dep["cmd"], capture_output=True, text=True, timeout=10)
+        result = run_cmd(dep["cmd"], timeout=10)
         if result.returncode == 0:
             version = result.stdout.strip() or result.stderr.strip()
             return True, version
