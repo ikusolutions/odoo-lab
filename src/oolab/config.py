@@ -25,6 +25,7 @@ class Tenant:
     branch: str = ""
     db_filter: str = ""
     enterprise: bool = False
+    odoo_version: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -34,11 +35,17 @@ class Tenant:
             "branch": self.branch,
             "db_filter": self.db_filter,
             "enterprise": self.enterprise,
+            # venv_name exposed for templates, not persisted to yaml
+            "venv_name": get_venv_name(self.odoo_version) if self.odoo_version else "",
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> Tenant:
-        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+        fields = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
+        # Derive odoo_version from branch (e.g. "17.0" -> "17") for legacy tenants
+        if not fields.get("odoo_version") and fields.get("branch"):
+            fields["odoo_version"] = normalize_version(fields["branch"])
+        return cls(**fields)
 
 
 @dataclass

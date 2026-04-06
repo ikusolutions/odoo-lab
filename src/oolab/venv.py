@@ -53,14 +53,6 @@ def _make_patched_requirements(requirements: Path) -> Path:
 
 
 def _pip_install(requirements: Path, python_bin: Path, label: str) -> bool:
-    result = run_cmd(
-        ["uv", "pip", "install", "-r", str(requirements), "--python", str(python_bin)],
-        timeout=600,
-    )
-    if result.returncode == 0:
-        return True
-
-    console.print(f"  [yellow]⚠[/yellow] Reintentando {label} con paquetes binarios...")
     patched = _make_patched_requirements(requirements)
     try:
         result = run_cmd(

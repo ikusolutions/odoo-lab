@@ -174,6 +174,7 @@ def add(
         branch=branch,
         db_filter=name,
         enterprise=is_enterprise,
+        odoo_version=normalized,
     )
 
     tenant_path = workspace_path / "tenants" / name
@@ -185,7 +186,7 @@ def add(
         # Install tenant requirements if present
         tenant_req = tenant_path / "requirements.txt"
         if tenant_req.exists():
-            python_bin = get_venv_python(workspace_path, config.venv_name)
+            python_bin = get_venv_python(workspace_path, venv_name)
             if python_bin.exists():
                 with console.status(
                     f"  Instalando dependencias de {display_name}...", spinner="dots"
