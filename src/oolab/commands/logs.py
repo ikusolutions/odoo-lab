@@ -12,7 +12,9 @@ console = Console()
 @app.command()
 def logs(
     service: str = typer.Argument(None, help="Servicio específico (db, nginx)"),
-    follow: bool = typer.Option(False, "--follow", "-f", help="Seguir logs en tiempo real"),
+    follow: bool = typer.Option(
+        False, "--follow", "-f", help="Seguir logs en tiempo real"
+    ),
     tail: int = typer.Option(50, "--tail", "-n", help="Número de líneas a mostrar"),
 ):
     """Muestra logs de los servicios Docker (PostgreSQL, Nginx). Usa -f para seguir en tiempo real."""

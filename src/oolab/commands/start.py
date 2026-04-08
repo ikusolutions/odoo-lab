@@ -10,7 +10,9 @@ console = Console()
 
 @app.command()
 def start(
-    build: bool = typer.Option(False, "--build", help="Reconstruir imágenes antes de iniciar"),
+    build: bool = typer.Option(
+        False, "--build", help="Reconstruir imágenes antes de iniciar"
+    ),
 ):
     """Levanta los servicios Docker del workspace (PostgreSQL, Nginx). Usa --build para reconstruir imágenes."""
     try:
@@ -35,9 +37,14 @@ def start(
 
     if result.returncode == 0:
         console.print("  [green]✓[/green] Servicios levantados correctamente")
-        ps_result = run_cmd(["docker", "compose", "-f", compose_file, "ps", "--format", "table"], timeout=30)
+        ps_result = run_cmd(
+            ["docker", "compose", "-f", compose_file, "ps", "--format", "table"],
+            timeout=30,
+        )
         if ps_result.returncode == 0 and ps_result.stdout.strip():
             console.print(f"\n{ps_result.stdout.strip()}\n")
     else:
-        console.print(f"  [red]✗[/red] Error levantando servicios: {result.stderr.strip()}")
+        console.print(
+            f"  [red]✗[/red] Error levantando servicios: {result.stderr.strip()}"
+        )
         raise typer.Exit(1) from None

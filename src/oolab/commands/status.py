@@ -24,10 +24,14 @@ def status():
     compose_file = str(workspace_path / "docker" / "docker-compose.yaml")
     edition = "Community + Enterprise" if config.enterprise_enabled else "Community"
 
-    console.print(f"\n  [bold]{config.name}[/bold] — Odoo {config.odoo_version}.0 ({edition})\n")
+    console.print(
+        f"\n  [bold]{config.name}[/bold] — Odoo {config.odoo_version}.0 ({edition})\n"
+    )
 
     # Docker services
-    docker_table = Table(title="Servicios Docker", show_header=True, header_style="bold")
+    docker_table = Table(
+        title="Servicios Docker", show_header=True, header_style="bold"
+    )
     docker_table.add_column("Servicio", style="cyan", width=16)
     docker_table.add_column("Estado", width=14)
     docker_table.add_column("Puerto", style="dim")
@@ -45,12 +49,21 @@ def status():
                 for c in containers:
                     name = c.get("Service", c.get("Name", "?"))
                     state = c.get("State", "unknown")
-                    status_str = "[green]corriendo[/green]" if state == "running" else f"[red]{state}[/red]"
+                    status_str = (
+                        "[green]corriendo[/green]"
+                        if state == "running"
+                        else f"[red]{state}[/red]"
+                    )
                     publishers = c.get("Publishers", [])
-                    ports = ", ".join(
-                        f"{p['PublishedPort']}" for p in publishers
-                        if p.get("PublishedPort", 0) > 0
-                    ) if publishers else "-"
+                    ports = (
+                        ", ".join(
+                            f"{p['PublishedPort']}"
+                            for p in publishers
+                            if p.get("PublishedPort", 0) > 0
+                        )
+                        if publishers
+                        else "-"
+                    )
                     docker_table.add_row(name, status_str, ports)
             except (json.JSONDecodeError, TypeError):
                 docker_table.add_row("-", "[yellow]no se pudo leer[/yellow]", "-")

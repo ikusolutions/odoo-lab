@@ -23,10 +23,22 @@ def slugify(text: str) -> str:
     return text.strip("-")
 
 
-def clone_repo(url: str, dest: Path, branch: str, label: str, fallback_to_default: bool = False) -> bool:
+def clone_repo(
+    url: str, dest: Path, branch: str, label: str, fallback_to_default: bool = False
+) -> bool:
     with console.status(f"  Clonando {label}...", spinner="dots"):
         result = run_cmd(
-            ["git", "clone", "--depth", "1", "--no-single-branch", "--branch", branch, url, str(dest)],
+            [
+                "git",
+                "clone",
+                "--depth",
+                "1",
+                "--no-single-branch",
+                "--branch",
+                branch,
+                url,
+                str(dest),
+            ],
             timeout=300,
         )
     if result.returncode == 0:
@@ -37,7 +49,9 @@ def clone_repo(url: str, dest: Path, branch: str, label: str, fallback_to_defaul
         console.print(
             f"  [yellow]⚠[/yellow] Branch '{branch}' no encontrado, clonando rama por defecto..."
         )
-        with console.status(f"  Clonando {label} (rama por defecto)...", spinner="dots"):
+        with console.status(
+            f"  Clonando {label} (rama por defecto)...", spinner="dots"
+        ):
             result = run_cmd(
                 ["git", "clone", "--depth", "1", "--no-single-branch", url, str(dest)],
                 timeout=300,

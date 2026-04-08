@@ -39,7 +39,7 @@ def get_version_from_venv_name(venv_name: str) -> str | None:
     """Extract Odoo version from venv name. E.g. '.venv-v18' -> '18'."""
     prefix = ".venv-v"
     if venv_name.startswith(prefix):
-        return venv_name[len(prefix):]
+        return venv_name[len(prefix) :]
     return None
 
 

@@ -34,18 +34,18 @@ BINARY_ALTERNATIVES = {
 # - pyopenssl==19.0.0 + cryptography>=37 breaks → use >=23.2.0
 # - gevent/greenlet/lxml/Pillow/reportlab/psycopg2: old pins have no arm64 wheel
 VERSION_FIXES: dict[str, str] = {
-    "cryptography":  "cryptography>=41.0.0,<42.0.0",
-    "pyopenssl":     "pyOpenSSL>=23.2.0",
+    "cryptography": "cryptography>=41.0.0,<42.0.0",
+    "pyopenssl": "pyOpenSSL>=23.2.0",
     # urllib3 1.x uses cryptography.hazmat.backends.openssl.x509._Certificate (removed in >=38)
     # urllib3 2.x rewrote the pyopenssl integration — no longer uses the private API
-    "urllib3":       "urllib3>=2.0.0",
-    "requests":      "requests>=2.28.0",  # compatible with urllib3>=2.0
-    "gevent":        "gevent>=22.10.2",
-    "greenlet":      "greenlet>=2.0.0",
-    "lxml":          "lxml>=4.9.0,<5.0",  # 5.0 removed lxml.html.clean (Odoo 15/16/17 need it)
-    "Pillow":        "Pillow>=9.5.0",
-    "reportlab":     "reportlab>=3.6.12",
-    "psycopg2":      "psycopg2-binary",
+    "urllib3": "urllib3>=2.0.0",
+    "requests": "requests>=2.28.0",  # compatible with urllib3>=2.0
+    "gevent": "gevent>=22.10.2",
+    "greenlet": "greenlet>=2.0.0",
+    "lxml": "lxml>=4.9.0,<5.0",  # 5.0 removed lxml.html.clean (Odoo 15/16/17 need it)
+    "Pillow": "Pillow>=9.5.0",
+    "reportlab": "reportlab>=3.6.12",
+    "psycopg2": "psycopg2-binary",
 }
 
 # Critical imports to verify after install — maps import name to pip package
@@ -99,7 +99,11 @@ def _make_patched_requirements(requirements: Path) -> Path:
             flags=re.MULTILINE | re.IGNORECASE,
         )
         # If the package wasn't in requirements.txt at all, add it at the end
-        if not re.search(rf"^{re.escape(replacement.split('>=')[0].split('==')[0])}", content, re.MULTILINE | re.IGNORECASE):
+        if not re.search(
+            rf"^{re.escape(replacement.split('>=')[0].split('==')[0])}",
+            content,
+            re.MULTILINE | re.IGNORECASE,
+        ):
             content += f"\n{replacement}\n"
 
     tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
@@ -147,12 +151,22 @@ def _pip_install(requirements: Path, python_bin: Path, label: str) -> bool:
 
         try:
             r = run_cmd(
-                ["uv", "pip", "install", "-r", str(tmp_path), "--python", str(python_bin)],
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "-r",
+                    str(tmp_path),
+                    "--python",
+                    str(python_bin),
+                ],
                 timeout=120,
             )
             if r.returncode != 0:
                 if r.stderr.strip():
-                    console.print(f"  [dim red]  {pkg_name}: {r.stderr.strip()[:200]}[/dim red]")
+                    console.print(
+                        f"  [dim red]  {pkg_name}: {r.stderr.strip()[:200]}[/dim red]"
+                    )
                 if pkg_name not in seen:
                     failed.append(pkg_name)
                     seen.add(pkg_name)
@@ -173,7 +187,9 @@ def _pip_install(requirements: Path, python_bin: Path, label: str) -> bool:
 
 def _install_core_packages(python_bin: Path) -> None:
     """Install critical packages explicitly — never rely on requirements.txt for these."""
-    with console.status("  Instalando paquetes core (psycopg2-binary, wheel)...", spinner="dots"):
+    with console.status(
+        "  Instalando paquetes core (psycopg2-binary, wheel)...", spinner="dots"
+    ):
         result = run_cmd(
             ["uv", "pip", "install", *CORE_PACKAGES, "--python", str(python_bin)],
             timeout=120,
@@ -216,7 +232,10 @@ def _get_odoo_req_for_branch(odoo_path: Path, branch: str) -> Path | None:
 
 
 def install_requirements(
-    workspace_path: Path, venv_name: str, config: WorkspaceConfig, odoo_version: str | None = None
+    workspace_path: Path,
+    venv_name: str,
+    config: WorkspaceConfig,
+    odoo_version: str | None = None,
 ) -> bool:
     python_bin = get_venv_python(workspace_path, venv_name)
 
@@ -286,7 +305,9 @@ def install_requirements(
             timeout=120,
         )
         if result.returncode == 0:
-            console.print("  [green]✓[/green] Módulos críticos reinstalados correctamente")
+            console.print(
+                "  [green]✓[/green] Módulos críticos reinstalados correctamente"
+            )
         else:
             console.print(
                 f"  [red]✗[/red] No se pudo instalar: {', '.join(missing)}\n"

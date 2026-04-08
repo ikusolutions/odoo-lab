@@ -30,5 +30,7 @@ def stop():
     if result.returncode == 0:
         console.print("  [green]✓[/green] Servicios detenidos correctamente")
     else:
-        console.print(f"  [red]✗[/red] Error deteniendo servicios: {result.stderr.strip()}")
+        console.print(
+            f"  [red]✗[/red] Error deteniendo servicios: {result.stderr.strip()}"
+        )
         raise typer.Exit(1) from None
