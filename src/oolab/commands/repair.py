@@ -9,14 +9,13 @@ from rich.console import Console
 
 from oolab.cli import app, print_banner
 from oolab.config import WorkspaceConfig, find_workspace, get_venv_python
-from oolab.versions import get_venv_name, get_version_from_venv_name, normalize_version
+from oolab.utils import run_cmd
 from oolab.venv import (
     CORE_PACKAGES,
     CRITICAL_IMPORTS,
-    _pip_install,
     install_requirements,
 )
-from oolab.utils import run_cmd
+from oolab.versions import get_venv_name, get_version_from_venv_name, normalize_version
 
 console = Console()
 
@@ -46,7 +45,13 @@ def _get_all_venvs(workspace_path: Path, config: WorkspaceConfig) -> dict[str, P
     return venvs
 
 
-def _repair_venv(venv_name: str, python_bin: Path, workspace_path: Path, config: WorkspaceConfig, full: bool) -> bool:
+def _repair_venv(
+    venv_name: str,
+    python_bin: Path,
+    workspace_path: Path,
+    config: WorkspaceConfig,
+    full: bool,
+) -> bool:
     console.print(f"\n  [bold blue]── {venv_name}[/bold blue]")
 
     if not python_bin.exists():
@@ -54,13 +59,15 @@ def _repair_venv(venv_name: str, python_bin: Path, workspace_path: Path, config:
         return False
 
     # 1. Core packages
-    with console.status(f"  Instalando core packages ({', '.join(CORE_PACKAGES)})...", spinner="dots"):
+    with console.status(
+        f"  Instalando core packages ({', '.join(CORE_PACKAGES)})...", spinner="dots"
+    ):
         result = run_cmd(
             ["uv", "pip", "install", *CORE_PACKAGES, "--python", str(python_bin)],
             timeout=120,
         )
     if result.returncode == 0:
-        console.print(f"  [green]✓[/green] Core packages instalados")
+        console.print("  [green]✓[/green] Core packages instalados")
     else:
         console.print(f"  [red]✗[/red] Error: {result.stderr.strip()[:300]}")
 
@@ -70,7 +77,9 @@ def _repair_venv(venv_name: str, python_bin: Path, workspace_path: Path, config:
     if full:
         odoo_version = get_version_from_venv_name(venv_name)
         console.print("  Reinstalando requirements.txt completos...")
-        install_requirements(workspace_path, venv_name, config, odoo_version=odoo_version)
+        install_requirements(
+            workspace_path, venv_name, config, odoo_version=odoo_version
+        )
 
     # 3. Verify critical imports
     missing = []
@@ -80,11 +89,11 @@ def _repair_venv(venv_name: str, python_bin: Path, workspace_path: Path, config:
             missing.append(pip_name)
 
     if not missing:
-        console.print(f"  [green]✓[/green] Todos los módulos críticos disponibles")
+        console.print("  [green]✓[/green] Todos los módulos críticos disponibles")
         return True
 
     console.print(f"  [red]✗[/red] Módulos faltantes: {', '.join(missing)}")
-    console.print(f"  Instalando...")
+    console.print("  Instalando...")
 
     result = run_cmd(
         ["uv", "pip", "install", *missing, "--python", str(python_bin)],
@@ -124,7 +133,9 @@ def repair(
 
     if not venvs:
         console.print("  [yellow]⚠[/yellow] No se encontraron entornos virtuales.")
-        console.print("  Corre [cyan]oolab init[/cyan] o [cyan]oolab add[/cyan] primero.\n")
+        console.print(
+            "  Corre [cyan]oolab init[/cyan] o [cyan]oolab add[/cyan] primero.\n"
+        )
         raise typer.Exit(1)
 
     all_ok = True
@@ -135,10 +146,16 @@ def repair(
 
     console.print()
     if all_ok:
-        console.print("  [bold green]✓ Workspace reparado correctamente.[/bold green]\n")
+        console.print(
+            "  [bold green]✓ Workspace reparado correctamente.[/bold green]\n"
+        )
     else:
-        console.print("  [bold yellow]⚠ Algunos problemas no se pudieron resolver.[/bold yellow]")
+        console.print(
+            "  [bold yellow]⚠ Algunos problemas no se pudieron resolver.[/bold yellow]"
+        )
         console.print("  [dim]Puede que necesites dependencias del sistema:[/dim]")
         console.print("  [dim]  macOS:  brew install postgresql libxml2 libxslt[/dim]")
-        console.print("  [dim]  Linux:  apt install libpq-dev libxml2-dev libxslt1-dev libldap2-dev libsasl2-dev[/dim]\n")
+        console.print(
+            "  [dim]  Linux:  apt install libpq-dev libxml2-dev libxslt1-dev libldap2-dev libsasl2-dev[/dim]\n"
+        )
         raise typer.Exit(1)

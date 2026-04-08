@@ -1,5 +1,4 @@
 import subprocess
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -14,11 +13,13 @@ console = Console()
 
 @app.command(name="reset-pwd")
 def reset_pwd(
-    db_arg: Optional[str] = typer.Argument(None, help="Nombre de la base de datos"),
-    password_arg: Optional[str] = typer.Argument(None, help="Nueva contraseña"),
-    db: Optional[str] = typer.Option(None, "--db", help="Nombre de la base de datos"),
-    password: Optional[str] = typer.Option(None, "--password", help="Nueva contraseña"),
-    login: str = typer.Option("admin", "--login", help="Login del usuario (default: admin)"),
+    db_arg: str | None = typer.Argument(None, help="Nombre de la base de datos"),
+    password_arg: str | None = typer.Argument(None, help="Nueva contraseña"),
+    db: str | None = typer.Option(None, "--db", help="Nombre de la base de datos"),
+    password: str | None = typer.Option(None, "--password", help="Nueva contraseña"),
+    login: str = typer.Option(
+        "admin", "--login", help="Login del usuario (default: admin)"
+    ),
 ):
     """Resetear la contraseña. Uso: reset-pwd DB PASSWORD  o  reset-pwd --db DB --password PASSWORD"""
     db = db or db_arg
@@ -42,7 +43,9 @@ def reset_pwd(
         (t for t in config.tenants if t.db_filter == db or t.name == db),
         None,
     )
-    venv_name = (get_venv_name(tenant.odoo_version) if tenant and tenant.odoo_version else None) or config.venv_name
+    venv_name = (
+        get_venv_name(tenant.odoo_version) if tenant and tenant.odoo_version else None
+    ) or config.venv_name
     python_bin = get_venv_python(workspace_path, venv_name)
     odoo_bin = workspace_path / "odoo" / "odoo-bin"
     odoo_conf = workspace_path / "config" / "odoo" / "odoo.conf"

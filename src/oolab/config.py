@@ -7,7 +7,6 @@ from pathlib import Path
 import yaml
 
 from oolab.versions import (
-    get_branch_name,
     get_postgres_min,
     get_python_version,
     get_venv_name,

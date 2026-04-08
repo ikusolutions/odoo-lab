@@ -184,7 +184,9 @@ def add(
     tenant_path = workspace_path / "tenants" / name
 
     if url:
-        if not clone_repo(url, tenant_path, branch, name, fallback_to_default=not branch_explicit):
+        if not clone_repo(
+            url, tenant_path, branch, name, fallback_to_default=not branch_explicit
+        ):
             raise typer.Exit(1) from None
 
         # Install pre-commit hooks if config is present
@@ -193,9 +195,11 @@ def add(
             with console.status("  Instalando pre-commit hooks...", spinner="dots"):
                 result = run_cmd(["pre-commit", "install"], cwd=str(tenant_path))
             if result.returncode == 0:
-                console.print(f"  [green]✓[/green] pre-commit hooks instalados")
+                console.print("  [green]✓[/green] pre-commit hooks instalados")
             else:
-                console.print(f"  [yellow]⚠[/yellow] pre-commit no disponible o falló: {result.stderr.strip()[:200]}")
+                console.print(
+                    f"  [yellow]⚠[/yellow] pre-commit no disponible o falló: {result.stderr.strip()[:200]}"
+                )
 
         # Install tenant requirements if present
         tenant_req = tenant_path / "requirements.txt"
