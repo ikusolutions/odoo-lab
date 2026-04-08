@@ -6,6 +6,7 @@ from rich.console import Console
 
 from oolab.config import WorkspaceConfig, get_venv_python
 from oolab.utils import run_cmd
+from oolab.versions import get_branch_name
 
 console = Console()
 
@@ -197,8 +198,25 @@ def _verify_critical_packages(python_bin: Path) -> list[str]:
     return missing
 
 
+def _get_odoo_req_for_branch(odoo_path: Path, branch: str) -> Path | None:
+    """Read odoo/requirements.txt for a specific branch via git show (no checkout needed).
+    Returns a temp file path or None if the branch/file is not available."""
+    result = run_cmd(
+        ["git", "show", f"{branch}:requirements.txt"],
+        cwd=str(odoo_path),
+    )
+    if result.returncode != 0:
+        return None
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", delete=False, prefix=f"odoo-req-{branch}-"
+    )
+    tmp.write(result.stdout)
+    tmp.close()
+    return Path(tmp.name)
+
+
 def install_requirements(
-    workspace_path: Path, venv_name: str, config: WorkspaceConfig
+    workspace_path: Path, venv_name: str, config: WorkspaceConfig, odoo_version: str | None = None
 ) -> bool:
     python_bin = get_venv_python(workspace_path, venv_name)
 
@@ -213,10 +231,25 @@ def install_requirements(
 
     # 3. requirements.txt sources
     req_sources: list[tuple[Path, str]] = []
+    _temp_files: list[Path] = []
 
-    odoo_req = workspace_path / "odoo" / "requirements.txt"
-    if odoo_req.exists():
-        req_sources.append((odoo_req, "Odoo framework"))
+    odoo_path = workspace_path / "odoo"
+    if odoo_path.exists():
+        if odoo_version:
+            branch = get_branch_name(odoo_version)
+            tmp_req = _get_odoo_req_for_branch(odoo_path, branch)
+            if tmp_req:
+                req_sources.append((tmp_req, f"Odoo framework ({branch})"))
+                _temp_files.append(tmp_req)
+            else:
+                # Branch not available locally, fall back to current checkout
+                odoo_req = odoo_path / "requirements.txt"
+                if odoo_req.exists():
+                    req_sources.append((odoo_req, "Odoo framework (checkout actual)"))
+        else:
+            odoo_req = odoo_path / "requirements.txt"
+            if odoo_req.exists():
+                req_sources.append((odoo_req, "Odoo framework"))
 
     if config.enterprise_enabled:
         ent_req = workspace_path / "enterprise" / "requirements.txt"
@@ -260,5 +293,9 @@ def install_requirements(
                 f"  {result.stderr.strip()[:300]}"
             )
             all_ok = False
+
+    # Cleanup temp requirement files created via git show
+    for tmp in _temp_files:
+        tmp.unlink(missing_ok=True)
 
     return all_ok

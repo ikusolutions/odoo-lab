@@ -9,7 +9,7 @@ from rich.console import Console
 
 from oolab.cli import app, print_banner
 from oolab.config import WorkspaceConfig, find_workspace, get_venv_python
-from oolab.versions import get_venv_name, normalize_version
+from oolab.versions import get_venv_name, get_version_from_venv_name, normalize_version
 from oolab.venv import (
     CORE_PACKAGES,
     CRITICAL_IMPORTS,
@@ -65,9 +65,12 @@ def _repair_venv(venv_name: str, python_bin: Path, workspace_path: Path, config:
         console.print(f"  [red]✗[/red] Error: {result.stderr.strip()[:300]}")
 
     # 2. Full requirements reinstall if requested
+    # Pass the venv's Odoo version so install_requirements reads the correct
+    # branch from git (via git show) instead of the current checkout.
     if full:
+        odoo_version = get_version_from_venv_name(venv_name)
         console.print("  Reinstalando requirements.txt completos...")
-        install_requirements(workspace_path, venv_name, config)
+        install_requirements(workspace_path, venv_name, config, odoo_version=odoo_version)
 
     # 3. Verify critical imports
     missing = []

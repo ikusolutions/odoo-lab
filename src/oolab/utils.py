@@ -23,7 +23,7 @@ def slugify(text: str) -> str:
     return text.strip("-")
 
 
-def clone_repo(url: str, dest: Path, branch: str, label: str) -> bool:
+def clone_repo(url: str, dest: Path, branch: str, label: str, fallback_to_default: bool = False) -> bool:
     with console.status(f"  Clonando {label}...", spinner="dots"):
         result = run_cmd(
             ["git", "clone", "--depth", "1", "--no-single-branch", "--branch", branch, url, str(dest)],
@@ -32,9 +32,22 @@ def clone_repo(url: str, dest: Path, branch: str, label: str) -> bool:
     if result.returncode == 0:
         console.print(f"  [green]✓[/green] {label} clonado correctamente")
         return True
-    else:
-        console.print(f"  [red]✗[/red] Error clonando {label}: {result.stderr.strip()}")
-        return False
+
+    if fallback_to_default and "not found" in result.stderr:
+        console.print(
+            f"  [yellow]⚠[/yellow] Branch '{branch}' no encontrado, clonando rama por defecto..."
+        )
+        with console.status(f"  Clonando {label} (rama por defecto)...", spinner="dots"):
+            result = run_cmd(
+                ["git", "clone", "--depth", "1", "--no-single-branch", url, str(dest)],
+                timeout=300,
+            )
+        if result.returncode == 0:
+            console.print(f"  [green]✓[/green] {label} clonado (rama por defecto)")
+            return True
+
+    console.print(f"  [red]✗[/red] Error clonando {label}: {result.stderr.strip()}")
+    return False
 
 
 def copy_local(src: str, dest: Path, label: str) -> bool:

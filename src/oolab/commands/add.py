@@ -97,7 +97,10 @@ def add(
 
     # Interactive: ask project name, auto-derive slug
     if not display_name:
-        display_name = Prompt.ask("\n  Nombre del proyecto")
+        if name:
+            display_name = name
+        else:
+            display_name = Prompt.ask("\n  Nombre del proyecto")
 
     if not name:
         name = slugify(display_name)
@@ -133,6 +136,7 @@ def add(
         else:
             new = True
 
+    branch_explicit = branch is not None
     if not branch:
         branch = get_branch_name(normalized)
 
@@ -180,7 +184,7 @@ def add(
     tenant_path = workspace_path / "tenants" / name
 
     if url:
-        if not clone_repo(url, tenant_path, branch, name):
+        if not clone_repo(url, tenant_path, branch, name, fallback_to_default=not branch_explicit):
             raise typer.Exit(1) from None
 
         # Install tenant requirements if present
