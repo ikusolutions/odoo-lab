@@ -12,7 +12,7 @@ from oolab.cli import app, print_banner
 from oolab.commands.generate import generate_all
 from oolab.config import Tenant, WorkspaceConfig, find_workspace, get_venv_python
 from oolab.scaffold import scaffold_tenant
-from oolab.utils import clone_repo, copy_local, ensure_branch, slugify
+from oolab.utils import clone_repo, copy_local, ensure_branch, run_cmd, slugify
 from oolab.venv import _pip_install, install_requirements, setup_venv
 from oolab.versions import (
     available_versions,
@@ -186,6 +186,16 @@ def add(
     if url:
         if not clone_repo(url, tenant_path, branch, name, fallback_to_default=not branch_explicit):
             raise typer.Exit(1) from None
+
+        # Install pre-commit hooks if config is present
+        precommit_cfg = tenant_path / ".pre-commit-config.yaml"
+        if precommit_cfg.exists():
+            with console.status("  Instalando pre-commit hooks...", spinner="dots"):
+                result = run_cmd(["pre-commit", "install"], cwd=str(tenant_path))
+            if result.returncode == 0:
+                console.print(f"  [green]✓[/green] pre-commit hooks instalados")
+            else:
+                console.print(f"  [yellow]⚠[/yellow] pre-commit no disponible o falló: {result.stderr.strip()[:200]}")
 
         # Install tenant requirements if present
         tenant_req = tenant_path / "requirements.txt"
