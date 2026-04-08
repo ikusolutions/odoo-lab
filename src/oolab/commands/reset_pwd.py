@@ -1,23 +1,34 @@
 import subprocess
+from typing import Optional
 
 import typer
 from rich.console import Console
 
 from oolab.cli import app
 from oolab.config import WorkspaceConfig, find_workspace, get_venv_python
+from oolab.utils import detect_addon_dirs
+from oolab.versions import get_venv_name
 
 console = Console()
 
 
 @app.command(name="reset-pwd")
 def reset_pwd(
-    db: str = typer.Option(..., "--db", help="Nombre de la base de datos"),
-    password: str = typer.Option(..., "--password", help="Nueva contraseña"),
-    login: str = typer.Option(
-        "admin", "--login", help="Login del usuario (default: admin)"
-    ),
+    db_arg: Optional[str] = typer.Argument(None, help="Nombre de la base de datos"),
+    password_arg: Optional[str] = typer.Argument(None, help="Nueva contraseña"),
+    db: Optional[str] = typer.Option(None, "--db", help="Nombre de la base de datos"),
+    password: Optional[str] = typer.Option(None, "--password", help="Nueva contraseña"),
+    login: str = typer.Option("admin", "--login", help="Login del usuario (default: admin)"),
 ):
-    """Resetear la contraseña del admin (res.users ID=2) en una base de datos local."""
+    """Resetear la contraseña. Uso: reset-pwd DB PASSWORD  o  reset-pwd --db DB --password PASSWORD"""
+    db = db or db_arg
+    password = password or password_arg
+    if not db:
+        console.print("\n  [red]✗[/red] Falta el argumento DB\n")
+        raise typer.Exit(1)
+    if not password:
+        console.print("\n  [red]✗[/red] Falta el argumento PASSWORD\n")
+        raise typer.Exit(1)
     try:
         workspace_path = find_workspace()
     except FileNotFoundError as e:
@@ -26,7 +37,13 @@ def reset_pwd(
 
     config = WorkspaceConfig.load(workspace_path)
 
-    python_bin = get_venv_python(workspace_path, config.venv_name)
+    # Resolve venv from the matching tenant (by db_filter or name), fallback to workspace venv
+    tenant = next(
+        (t for t in config.tenants if t.db_filter == db or t.name == db),
+        None,
+    )
+    venv_name = (get_venv_name(tenant.odoo_version) if tenant and tenant.odoo_version else None) or config.venv_name
+    python_bin = get_venv_python(workspace_path, venv_name)
     odoo_bin = workspace_path / "odoo" / "odoo-bin"
     odoo_conf = workspace_path / "config" / "odoo" / "odoo.conf"
 
@@ -45,15 +62,18 @@ def reset_pwd(
         console.print("  Ejecuta [cyan]oolab generate[/cyan] primero.\n")
         raise typer.Exit(1)
 
-    # Construir addons-path dinámicamente
+    # Construir addons-path detectando módulos automáticamente
     addons_parts = [str(workspace_path / "odoo" / "addons")]
     if config.enterprise_enabled:
         enterprise_path = workspace_path / "enterprise"
         if enterprise_path.exists():
             addons_parts.append(str(enterprise_path))
-    for tenant in config.tenants:
-        tenant_path = workspace_path / "tenants" / tenant.name
-        if tenant_path.exists():
+    for t in config.tenants:
+        tenant_path = workspace_path / "tenants" / t.name
+        detected = detect_addon_dirs(tenant_path)
+        if detected:
+            addons_parts.extend(str(p) for p in detected)
+        elif tenant_path.exists():
             addons_parts.append(str(tenant_path))
     addons_path = ",".join(addons_parts)
 

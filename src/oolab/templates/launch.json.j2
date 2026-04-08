@@ -28,7 +28,7 @@
       "console": "integratedTerminal",
       "args": [
         "--config=${workspaceFolder}/config/odoo/odoo.conf",
-        "--addons-path=${workspaceFolder}/odoo/addons{% if tenant.enterprise %},${workspaceFolder}/enterprise{% endif %},${workspaceFolder}/tenants/{{ tenant.name }}",
+        "--addons-path=${workspaceFolder}/odoo/addons{% if tenant.enterprise %},${workspaceFolder}/enterprise{% endif %}{% if tenant.addon_paths %}{% for ap in tenant.addon_paths %},${workspaceFolder}/{{ ap }}{% endfor %}{% else %},${workspaceFolder}/tenants/{{ tenant.name }}{% endif %}",
         "--dev=reload,qweb,werkzeug,xml",
         "--db-filter={{ tenant.db_filter }}"
       ]
@@ -46,7 +46,7 @@
       "args": [
         "shell",
         "--config=${workspaceFolder}/config/odoo/odoo.conf",
-        "--addons-path=${workspaceFolder}/odoo/addons{% if has_enterprise %},${workspaceFolder}/enterprise{% endif %}{% for tenant in tenants %},${workspaceFolder}/tenants/{{ tenant.name }}{% endfor %}"
+        "--addons-path=${workspaceFolder}/odoo/addons{% if has_enterprise %},${workspaceFolder}/enterprise{% endif %}{% for tenant in tenants %}{% if tenant.addon_paths %}{% for ap in tenant.addon_paths %},${workspaceFolder}/{{ ap }}{% endfor %}{% else %},${workspaceFolder}/tenants/{{ tenant.name }}{% endif %}{% endfor %}"
       ]
     },
     {
@@ -61,7 +61,7 @@
       "args": [
         "-c",
         "${workspaceFolder}/config/odoo/odoo.conf",
-        "--addons-path=${workspaceFolder}/odoo/addons{% if has_enterprise %},${workspaceFolder}/enterprise{% endif %}{% for tenant in tenants %},${workspaceFolder}/tenants/{{ tenant.name }}{% endfor %}",
+        "--addons-path=${workspaceFolder}/odoo/addons{% if has_enterprise %},${workspaceFolder}/enterprise{% endif %}{% for tenant in tenants %}{% if tenant.addon_paths %}{% for ap in tenant.addon_paths %},${workspaceFolder}/{{ ap }}{% endfor %}{% else %},${workspaceFolder}/tenants/{{ tenant.name }}{% endif %}{% endfor %}",
         "-d",
         "community-test",
         "-u",
@@ -80,7 +80,7 @@
       "args": [
         "-c",
         "${workspaceFolder}/config/odoo/odoo.conf",
-        "--addons-path=${workspaceFolder}/odoo/addons{% if has_enterprise %},${workspaceFolder}/enterprise{% endif %}{% for tenant in tenants %},${workspaceFolder}/tenants/{{ tenant.name }}{% endfor %}",
+        "--addons-path=${workspaceFolder}/odoo/addons{% if has_enterprise %},${workspaceFolder}/enterprise{% endif %}{% for tenant in tenants %}{% if tenant.addon_paths %}{% for ap in tenant.addon_paths %},${workspaceFolder}/{{ ap }}{% endfor %}{% else %},${workspaceFolder}/tenants/{{ tenant.name }}{% endif %}{% endfor %}",
         "-d",
         "community-test",
         "-i",

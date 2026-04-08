@@ -84,7 +84,7 @@ def offer_install_uv() -> bool:
 
 @app.command()
 def doctor():
-    """Verify system dependencies for Odoo development."""
+    """Verifica dependencias del sistema: git, Docker, uv y Python. Ofrece instalar uv si no está disponible."""
     console.print("\n  Verificando dependencias del sistema...\n", style="bold blue")
 
     table = Table(show_header=True, header_style="bold")

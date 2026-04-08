@@ -10,7 +10,7 @@ console = Console()
 
 @app.command()
 def stop():
-    """Detener los servicios Docker del workspace."""
+    """Detiene los servicios Docker del workspace (PostgreSQL, Nginx)."""
     try:
         workspace_path = find_workspace()
     except FileNotFoundError as e:

@@ -9,6 +9,7 @@ from rich.console import Console
 from oolab import __version__ as oolab_version
 from oolab.cli import app
 from oolab.config import WorkspaceConfig, find_workspace
+from oolab.utils import detect_addon_dirs
 
 console = Console()
 
@@ -61,7 +62,16 @@ def generate_all(workspace_path: Path, config: WorkspaceConfig):
         "postgres_password": config.postgres_password,
         "nginx_enabled": config.nginx_enabled,
         "nginx_http_port": config.nginx_http_port,
-        "tenants": [t.to_dict() for t in config.tenants],
+        "tenants": [
+            {
+                **t.to_dict(),
+                "addon_paths": [
+                    str(p.relative_to(workspace_path))
+                    for p in detect_addon_dirs(workspace_path / "tenants" / t.name)
+                ],
+            }
+            for t in config.tenants
+        ],
         "platform": get_platform_arch(),
         "is_windows": sys.platform == "win32",
         "oolab_version": oolab_version,
@@ -87,7 +97,7 @@ def generate_all(workspace_path: Path, config: WorkspaceConfig):
 
 @app.command()
 def generate():
-    """Regenerate all config files from oolab.yaml."""
+    """Regenera odoo.conf, docker-compose, launch.json y demás configs a partir de oolab.yaml."""
     try:
         workspace_path = find_workspace()
     except FileNotFoundError as e:

@@ -7,7 +7,7 @@ Website: https://www.iku.solutions
 License: LGPL-3.0-or-later
 """
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 __author__ = "Yan Chirino"
 __email__ = "yan.chirino@iku.solutions"
 __company__ = "IKU Solutions SAS"

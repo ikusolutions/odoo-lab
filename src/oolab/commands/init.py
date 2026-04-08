@@ -134,7 +134,7 @@ def ask_first_tenant(odoo_version: str, enterprise_enabled: bool) -> Tenant | No
 
 @app.command()
 def init():
-    """Create a new odoo-launchpad workspace in the current directory."""
+    """Crea un workspace odoo-launchpad/ con wizard interactivo: clona Odoo, Enterprise (opcional) y configura el entorno."""
     cwd = Path.cwd()
     workspace_path = cwd / WORKSPACE_DIR_NAME
 

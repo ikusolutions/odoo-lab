@@ -81,7 +81,6 @@ class WorkspaceConfig:
             "name": self.name,
             "version": self.config_version,
             "odoo": {
-                "version": get_branch_name(self.odoo_version),
                 "community_url": self.community_url,
                 "enterprise": {
                     "enabled": self.enterprise_enabled,
@@ -119,10 +118,16 @@ class WorkspaceConfig:
         nginx = docker.get("nginx", {})
         tenants_data = data.get("tenants", [])
 
+        # Derive odoo_version: explicit in yaml (legacy) > first tenant branch > latest
+        raw_version = odoo.get("version")
+        if not raw_version and tenants_data:
+            raw_version = tenants_data[0].get("branch", "19.0")
+        odoo_version = normalize_version(raw_version or "19.0")
+
         return cls(
             name=data.get("name", "odoo-launchpad"),
             config_version=data.get("version", "1"),
-            odoo_version=normalize_version(odoo.get("version", "19.0")),
+            odoo_version=odoo_version,
             community_url=odoo.get("community_url", "https://github.com/odoo/odoo.git"),
             enterprise_enabled=enterprise.get("enabled", False),
             enterprise_source=enterprise.get("source", "git"),

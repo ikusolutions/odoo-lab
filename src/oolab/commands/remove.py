@@ -15,7 +15,7 @@ console = Console()
 def remove(
     name: str = typer.Argument(help="Nombre del proyecto a eliminar"),
 ):
-    """Remove a tenant project from the workspace."""
+    """Elimina un proyecto del workspace: borra el directorio y lo quita de oolab.yaml."""
     try:
         workspace_path = find_workspace()
     except FileNotFoundError as e:

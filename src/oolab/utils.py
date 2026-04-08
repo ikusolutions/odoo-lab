@@ -48,6 +48,53 @@ def copy_local(src: str, dest: Path, label: str) -> bool:
     return True
 
 
+def detect_addon_dirs(path: Path) -> list[Path]:
+    """Find all directories that are valid Odoo addons containers under path.
+
+    A valid addons container directly contains at least one Odoo module
+    (a directory with __manifest__.py or __openerp__.py).
+
+    Scans up to 3 levels deep to handle structures like:
+      path/src/module/__manifest__.py        → src
+      path/vendor/OCA/module/__manifest__.py → vendor/OCA
+      path/module/__manifest__.py            → path itself
+    """
+    if not path.exists() or not path.is_dir():
+        return []
+
+    MANIFEST_FILES = {"__manifest__.py", "__openerp__.py"}
+    found: set[Path] = set()
+
+    def _has_module(directory: Path) -> bool:
+        """True if directory directly contains at least one Odoo module."""
+        try:
+            for child in directory.iterdir():
+                if child.is_dir():
+                    for mf in MANIFEST_FILES:
+                        if (child / mf).exists():
+                            return True
+        except PermissionError:
+            pass
+        return False
+
+    def _subdirs(d: Path) -> list[Path]:
+        try:
+            return [c for c in d.iterdir() if c.is_dir() and not c.name.startswith(".")]
+        except PermissionError:
+            return []
+
+    # Depth 0, 1, 2 relative to path
+    for d0 in [path] + _subdirs(path):
+        if _has_module(d0):
+            found.add(d0)
+        if d0 != path:
+            for d1 in _subdirs(d0):
+                if _has_module(d1):
+                    found.add(d1)
+
+    return sorted(found)
+
+
 def get_current_branch(repo_path: Path) -> str:
     result = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(repo_path))
     return result.stdout.strip() if result.returncode == 0 else ""

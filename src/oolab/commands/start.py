@@ -12,7 +12,7 @@ console = Console()
 def start(
     build: bool = typer.Option(False, "--build", help="Reconstruir imágenes antes de iniciar"),
 ):
-    """Levantar los servicios Docker del workspace (PostgreSQL, Nginx)."""
+    """Levanta los servicios Docker del workspace (PostgreSQL, Nginx). Usa --build para reconstruir imágenes."""
     try:
         workspace_path = find_workspace()
     except FileNotFoundError as e:

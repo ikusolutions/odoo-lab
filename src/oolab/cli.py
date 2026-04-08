@@ -63,10 +63,11 @@ from oolab.commands import (
     list,
     logs,
     remove,
+    repair,
     reset_pwd,
     start,
     status,
     stop,
 )
 
-__all__ = ["app", "add", "doctor", "generate", "init", "list", "logs", "remove", "reset_pwd", "start", "status", "stop"]
+__all__ = ["app", "add", "doctor", "generate", "init", "list", "logs", "remove", "repair", "reset_pwd", "start", "status", "stop"]

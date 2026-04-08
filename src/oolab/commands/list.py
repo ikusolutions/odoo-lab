@@ -10,7 +10,7 @@ console = Console()
 
 @app.command(name="list")
 def list_tenants():
-    """List all tenant projects in the current workspace."""
+    """Lista los proyectos configurados en el workspace con su versión de Odoo, branch y estado."""
     try:
         workspace_path = find_workspace()
     except FileNotFoundError as e:

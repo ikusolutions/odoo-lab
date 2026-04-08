@@ -13,7 +13,7 @@ console = Console()
 
 @app.command()
 def status():
-    """Mostrar el estado del workspace: servicios Docker, ramas y tenants."""
+    """Muestra el estado completo del workspace: servicios Docker activos, branches de git y tenants configurados."""
     try:
         workspace_path = find_workspace()
     except FileNotFoundError as e:

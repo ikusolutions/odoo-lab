@@ -85,7 +85,7 @@ def add(
         False, "--new", "-n", help="Crear proyecto vacío (sin clonar)"
     ),
 ):
-    """Add a tenant project to the workspace."""
+    """Agrega un proyecto de cliente al workspace: clona un repositorio existente o crea uno nuevo con scaffold OCA."""
     print_banner()
     try:
         workspace_path = find_workspace()
