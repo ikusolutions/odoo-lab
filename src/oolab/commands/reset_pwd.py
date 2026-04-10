@@ -18,10 +18,10 @@ def reset_pwd(
     db: str | None = typer.Option(None, "--db", help="Nombre de la base de datos"),
     password: str | None = typer.Option(None, "--password", help="Nueva contraseña"),
     login: str = typer.Option(
-        "admin", "--login", help="Login del usuario (default: admin)"
+        "admin", "--login", help="Nuevo login del usuario admin (default: admin)"
     ),
 ):
-    """Resetear la contraseña. Uso: reset-pwd DB PASSWORD  o  reset-pwd --db DB --password PASSWORD"""
+    """Resetear contraseña del admin. Uso: reset-pwd DB PASS [--login NUEVO_LOGIN]"""
     db = db or db_arg
     password = password or password_arg
     if not db:
@@ -83,17 +83,15 @@ def reset_pwd(
     # Script ORM para Odoo shell
     escaped_password = password.replace("\\", "\\\\").replace("'", "\\'")
     escaped_login = login.replace("\\", "\\\\").replace("'", "\\'")
-
-    write_dict = f"{{'password': '{escaped_password}'}}"
-    if login != "admin":
-        write_dict = f"{{'login': '{escaped_login}', 'password': '{escaped_password}'}}"
+    write_vals = f"{{'login': '{escaped_login}', 'password': '{escaped_password}'}}"
 
     script = (
-        "user = env['res.users'].browse(2)\n"
+        "user = env.ref('base.user_admin', raise_if_not_found=False) or env['res.users'].browse(2)\n"
         "if not user.exists():\n"
-        "    print('OOLAB_ERROR: res.users ID=2 not found')\n"
+        "    print('OOLAB_ERROR: admin user not found')\n"
         "else:\n"
-        f"    user.write({write_dict})\n"
+        f"    user.write({write_vals})\n"
+        "    user.flush_recordset()\n"
         "    env.cr.commit()\n"
         "    print('OOLAB_OK: password updated')\n"
     )
@@ -110,7 +108,7 @@ def reset_pwd(
     ]
 
     console.print(f"\n  [bold blue]Reseteando contraseña en DB '{db}'...[/bold blue]")
-    console.print(f"  [dim]Usuario: res.users ID=2 (login: {login})[/dim]\n")
+    console.print(f"  [dim]Usuario: base.user_admin → login: {login}[/dim]\n")
 
     try:
         with console.status("  Ejecutando Odoo shell...", spinner="dots"):
@@ -132,24 +130,23 @@ def reset_pwd(
     output = result.stdout + result.stderr
 
     if "OOLAB_OK: password updated" in result.stdout:
-        console.print("  [green]✓[/green] Contraseña actualizada correctamente.")
-        console.print(f"  [dim]DB: {db} | Login: {login}[/dim]\n")
-    elif "OOLAB_ERROR: res.users ID=2 not found" in output:
-        console.print("  [red]✗[/red] Usuario res.users ID=2 no encontrado en la DB.")
+        console.print("  [green]✓[/green] Credenciales actualizadas correctamente.")
+        console.print(
+            f"  [dim]DB: {db} | Login: {login} | Password: {password}[/dim]\n"
+        )
+    elif "OOLAB_ERROR: admin user not found" in output:
+        console.print(
+            "  [red]✗[/red] Usuario admin (base.user_admin) no encontrado en la DB."
+        )
         console.print("  Verifica que la base de datos tiene datos de Odoo.\n")
         raise typer.Exit(1)
     else:
         console.print("  [red]✗[/red] Error ejecutando Odoo shell.\n")
-        if result.stderr:
-            error_lines = [
-                line
-                for line in result.stderr.strip().splitlines()
-                if "fatal" in line.lower() or "error" in line.lower()
-            ]
-            if error_lines:
-                for line in error_lines[-5:]:
-                    console.print(f"  [dim]{line.strip()}[/dim]")
-            else:
-                console.print(f"  [dim]{result.stderr.strip()[-500:]}[/dim]")
+        if result.stdout.strip():
+            console.print("  [dim yellow]--- stdout ---[/dim yellow]")
+            console.print(f"  [dim]{result.stdout.strip()[-1000:]}[/dim]")
+        if result.stderr.strip():
+            console.print("  [dim yellow]--- stderr ---[/dim yellow]")
+            console.print(f"  [dim]{result.stderr.strip()[-1000:]}[/dim]")
         console.print()
         raise typer.Exit(1)
