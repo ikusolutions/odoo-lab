@@ -118,7 +118,7 @@ def ask_first_tenant(odoo_version: str, enterprise_enabled: bool) -> Tenant | No
             display_name=display_name,
             url=url,
             branch=branch,
-            db_filter=name,
+            db_filter=f"{name}-testdb",
             enterprise=is_enterprise,
         )
     else:
@@ -127,7 +127,7 @@ def ask_first_tenant(odoo_version: str, enterprise_enabled: bool) -> Tenant | No
             display_name=display_name,
             url="",
             branch=branch_default,
-            db_filter=name,
+            db_filter=f"{name}-testdb",
             enterprise=is_enterprise,
         )
 

@@ -91,7 +91,10 @@ def reset_pwd(
         "    print('OOLAB_ERROR: admin user not found')\n"
         "else:\n"
         f"    user.write({write_vals})\n"
-        "    user.flush_recordset()\n"
+        "    if hasattr(user, 'flush_recordset'):\n"
+        "        user.flush_recordset()\n"
+        "    else:\n"
+        "        user.flush()\n"
         "    env.cr.commit()\n"
         "    print('OOLAB_OK: password updated')\n"
     )

@@ -48,6 +48,18 @@ VERSION_FIXES: dict[str, str] = {
     "psycopg2": "psycopg2-binary",
 }
 
+# Fixes adicionales aplicados solo para una versión específica de Odoo.
+# Se aplican DESPUÉS de VERSION_FIXES y los sobreescriben si hay conflicto.
+VERSION_SPECIFIC_FIXES: dict[str, dict[str, str]] = {
+    "14": {
+        # Werkzeug 2.x reescribió el sistema de routing rompiendo compatibilidad con v14
+        "werkzeug": "Werkzeug>=0.16.0,<2.0",
+        # Jinja2 3.x + MarkupSafe 2.x cambiaron la API de autoescapado usada en v14
+        "jinja2": "Jinja2>=2.11.1,<3.0",
+        "markupsafe": "MarkupSafe>=1.1.0,<2.0",
+    },
+}
+
 # Critical imports to verify after install — maps import name to pip package
 CRITICAL_IMPORTS = {
     "psycopg2": "psycopg2-binary",
@@ -78,7 +90,9 @@ def setup_venv(workspace_path: Path, venv_name: str, python_version: str) -> boo
         return False
 
 
-def _make_patched_requirements(requirements: Path) -> Path:
+def _make_patched_requirements(
+    requirements: Path, odoo_version: str | None = None
+) -> Path:
     content = requirements.read_text(encoding="utf-8")
 
     # Replace source-build packages with binary equivalents (keep version constraint)
@@ -91,7 +105,11 @@ def _make_patched_requirements(requirements: Path) -> Path:
         )
 
     # Replace all lines for a package with a fixed spec (ignores original version/markers)
-    for pkg, replacement in VERSION_FIXES.items():
+    all_fixes = dict(VERSION_FIXES)
+    if odoo_version:
+        all_fixes.update(VERSION_SPECIFIC_FIXES.get(odoo_version, {}))
+
+    for pkg, replacement in all_fixes.items():
         content = re.sub(
             rf"^{re.escape(pkg)}[^\n]*$",
             replacement,
@@ -112,8 +130,13 @@ def _make_patched_requirements(requirements: Path) -> Path:
     return Path(tmp.name)
 
 
-def _pip_install(requirements: Path, python_bin: Path, label: str) -> bool:
-    patched = _make_patched_requirements(requirements)
+def _pip_install(
+    requirements: Path,
+    python_bin: Path,
+    label: str,
+    odoo_version: str | None = None,
+) -> bool:
+    patched = _make_patched_requirements(requirements, odoo_version)
     try:
         result = run_cmd(
             ["uv", "pip", "install", "-r", str(patched), "--python", str(python_bin)],
@@ -128,7 +151,7 @@ def _pip_install(requirements: Path, python_bin: Path, label: str) -> bool:
 
     console.print(f"  [yellow]⚠[/yellow] Instalando {label} paquete por paquete...")
     # Use patched content (VERSION_FIXES + BINARY_ALTERNATIVES already applied)
-    patched2 = _make_patched_requirements(requirements)
+    patched2 = _make_patched_requirements(requirements, odoo_version)
     req_content = patched2.read_text()
     patched2.unlink(missing_ok=True)
     failed = []
@@ -287,7 +310,7 @@ def install_requirements(
     all_ok = True
     for req_file, label in req_sources:
         with console.status(f"  Instalando dependencias de {label}...", spinner="dots"):
-            ok = _pip_install(req_file, python_bin, label)
+            ok = _pip_install(req_file, python_bin, label, odoo_version)
         if ok:
             console.print(f"  [green]✓[/green] Dependencias de {label} instaladas")
         else:

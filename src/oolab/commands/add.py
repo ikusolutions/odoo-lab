@@ -26,7 +26,9 @@ from oolab.versions import (
 console = Console()
 
 
-def ensure_enterprise(workspace_path: Path, config: WorkspaceConfig, branch: str):
+def ensure_enterprise(
+    workspace_path: Path, config: WorkspaceConfig, branch: str, odoo_version: str
+):
     """Ensure enterprise addons are available, clone/copy if not."""
     ent_path = workspace_path / "enterprise"
     if ent_path.exists() and any(ent_path.iterdir()):
@@ -65,7 +67,7 @@ def ensure_enterprise(workspace_path: Path, config: WorkspaceConfig, branch: str
             with console.status(
                 "  Instalando dependencias de Enterprise...", spinner="dots"
             ):
-                _pip_install(ent_req, python_bin, "Enterprise")
+                _pip_install(ent_req, python_bin, "Enterprise", odoo_version)
             console.print("  [green]✓[/green] Dependencias de Enterprise instaladas")
 
     config.save(workspace_path)
@@ -155,7 +157,7 @@ def add(
 
     # Ensure enterprise is available and on the correct branch
     if is_enterprise:
-        ensure_enterprise(workspace_path, config, branch)
+        ensure_enterprise(workspace_path, config, branch, normalized)
         ent_path = workspace_path / "enterprise"
         if ent_path.exists() and (ent_path / ".git").exists():
             ensure_branch(ent_path, branch, "Enterprise")
@@ -176,7 +178,7 @@ def add(
         display_name=display_name,
         url=url or "",
         branch=branch,
-        db_filter=name,
+        db_filter=f"{name}-testdb",
         enterprise=is_enterprise,
         odoo_version=normalized,
     )
@@ -209,7 +211,7 @@ def add(
                 with console.status(
                     f"  Instalando dependencias de {display_name}...", spinner="dots"
                 ):
-                    ok = _pip_install(tenant_req, python_bin, display_name)
+                    ok = _pip_install(tenant_req, python_bin, display_name, normalized)
                 if ok:
                     console.print(
                         f"  [green]✓[/green] Dependencias de {display_name} instaladas"
@@ -243,7 +245,9 @@ def add(
     console.print("  [bold cyan]Cómo ejecutar:[/bold cyan]\n")
     console.print("  [bold]1.[/bold] En VSCode, presiona [bold]F5[/bold] y selecciona:")
     console.print(f"     [green]▸[/green] [bold]{display_name}[/bold]{ent_tag}")
-    console.print(f"\n  [bold]2.[/bold] Base de datos (db-filter): [cyan]{name}[/cyan]")
+    console.print(
+        f"\n  [bold]2.[/bold] Base de datos (db-filter): [cyan]{tenant.db_filter}[/cyan]"
+    )
     console.print("     Odoo creará o usará una BD con este filtro al arrancar.")
     console.print(
         "     Puedes crearla desde [cyan]http://localhost:8069/web/database/manager[/cyan]"
