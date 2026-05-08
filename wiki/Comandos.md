@@ -86,6 +86,68 @@ oolab doctor
 Comprueba: git, docker, docker compose v2, uv, python3.
 Si uv no esta instalado, ofrece instalarlo automaticamente.
 
+## oolab module-install
+
+Instala uno o mas modulos en una base de datos.
+
+```bash
+oolab module-install acme-testdb sale,purchase,stock
+oolab module-install -d acme-testdb -m sale
+oolab module-install -d acme-testdb -m sale -t 3600
+```
+
+Opciones: `-d/--db`, `-m/--modules`, `-t/--timeout` (default 1800s).
+
+- Resuelve venv, addons-path y odoo.conf automaticamente desde `oolab.yaml`
+- Matchea el tenant por `db_filter` o `name` para elegir el venv correcto
+- Valida que los modulos existan en el addons-path antes de invocar Odoo
+- Usa `--stop-after-init` y `--no-http` (no levanta servidor web)
+- Stream de logs en tiempo real
+
+## oolab module-update
+
+Actualiza uno o mas modulos. Acepta `all` para actualizar todos.
+
+```bash
+oolab module-update acme-testdb sale
+oolab module-update -d acme-testdb -m sale,purchase
+oolab module-update acme-testdb all
+```
+
+Opciones: `-d/--db`, `-m/--modules`, `-t/--timeout`. Mismo flujo que
+`module-install` pero con `-u` en odoo-bin. `all` omite la validacion previa
+de modulos.
+
+## oolab open-shell
+
+Abre una shell ORM interactiva contra una base de datos.
+
+```bash
+oolab open-shell acme-testdb
+oolab open-shell -d acme-testdb
+```
+
+Opciones: `-d/--db`.
+
+- Sesion interactiva con `env`, `self.env`, etc.
+- Misma resolucion de venv y addons-path que el resto de comandos
+- `Ctrl+D` o `exit()` para salir
+
+## oolab reset-pwd
+
+Resetea la contrasena del usuario admin (`base.user_admin`).
+
+```bash
+oolab reset-pwd acme-testdb nuevoPass
+oolab reset-pwd -d acme-testdb -p nuevoPass
+oolab reset-pwd -d acme-testdb -p nuevoPass -l nuevo_login
+```
+
+Opciones: `-d/--db`, `-p/--password`, `-l/--login` (default `admin`).
+
+- Conecta via Odoo shell y ejecuta `user.write({...})`
+- Soporta cambiar tambien el login
+
 ## Opciones globales
 
 ```bash

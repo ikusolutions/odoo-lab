@@ -47,11 +47,10 @@ Presiona **F5** en VSCode y selecciona una configuracion:
 |---------------|-------------|-----------|
 | **Odoo - Community** | Arranca Odoo con addons base | `community-test` |
 {% for tenant in tenants %}| **{{ tenant.display_name }}** | Proyecto {{ tenant.display_name }}{{ " + Enterprise" if tenant.enterprise else "" }} | `{{ tenant.db_filter }}` |
-{% endfor %}| **Odoo - Shell** | Consola interactiva de Odoo | — |
-| **Odoo - Update module** | Actualiza un modulo (`-u module_name`) | `community-test` |
-| **Odoo - Install module** | Instala un modulo (`-i module_name`) | `community-test` |
+{% endfor %}
 
-> **Nota:** Para **Update/Install module**, edita `module_name` y el nombre de la base de datos en `.vscode/launch.json` antes de ejecutar.
+Para shell, instalar o actualizar modulos usa la CLI (ver siguiente seccion):
+no hace falta editar `launch.json`.
 
 ### 4. Acceder a Odoo
 
@@ -101,6 +100,38 @@ oolab generate
 
 # Verificar dependencias del sistema
 oolab doctor
+```
+
+## Modulos y base de datos
+
+```bash
+# Instalar uno o varios modulos
+oolab module-install {{ tenants[0].db_filter if tenants else 'mi-db' }} sale,purchase
+
+# Actualizar modulos (acepta 'all')
+oolab module-update {{ tenants[0].db_filter if tenants else 'mi-db' }} sale
+oolab module-update {{ tenants[0].db_filter if tenants else 'mi-db' }} all
+
+# Abrir shell ORM interactiva
+oolab open-shell {{ tenants[0].db_filter if tenants else 'mi-db' }}
+
+# Resetear contrasena del admin
+oolab reset-pwd {{ tenants[0].db_filter if tenants else 'mi-db' }} nuevoPass
+```
+
+Estos comandos resuelven automaticamente el venv, `addons-path` y
+`odoo.conf` segun la version de Odoo del tenant. Atajos comunes:
+`-d/--db`, `-m/--modules`, `-p/--password`, `-l/--login`,
+`-t/--timeout`.
+
+## Servicios Docker
+
+```bash
+oolab start          # Levanta PostgreSQL y Nginx
+oolab start --build  # Reconstruye imagenes
+oolab stop           # Detiene los servicios
+oolab status         # Estado de servicios, repos y tenants
+oolab logs -f        # Sigue logs en tiempo real (coloreados)
 ```
 
 ## oolab.yaml

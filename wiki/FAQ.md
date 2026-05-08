@@ -42,7 +42,10 @@ Si, para PostgreSQL y Nginx. Docker Compose v2 se usa para levantar los servicio
 
 ## Puedo usar otro IDE que no sea VSCode?
 
-Actualmente solo se generan configuraciones para VSCode. Soporte para PyCharm/IntelliJ esta en el roadmap.
+Actualmente solo se generan configuraciones para VSCode (`launch.json`,
+`settings.json`, `tasks.json`). Para shell, instalar y actualizar modulos
+puedes usar la CLI desde cualquier IDE: `oolab open-shell`, `oolab module-install`,
+`oolab module-update`.
 
 ## Donde se guardan los datos de Odoo?
 

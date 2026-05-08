@@ -1,11 +1,9 @@
 import typer
-from rich.console import Console
 from rich.table import Table
 
 from oolab.cli import app
 from oolab.config import WorkspaceConfig, find_workspace
-
-console = Console()
+from oolab.console import ERR, console
 
 
 @app.command(name="list")
@@ -14,7 +12,7 @@ def list_tenants():
     try:
         workspace_path = find_workspace()
     except FileNotFoundError as e:
-        console.print(f"\n  [red]✗ {e}[/red]\n")
+        console.print(f"\n  {ERR} {e}\n")
         raise typer.Exit(1) from None
 
     config = WorkspaceConfig.load(workspace_path)
@@ -29,11 +27,11 @@ def list_tenants():
 
     if not config.tenants:
         console.print("  No hay proyectos configurados.")
-        console.print("  Usa [cyan]oolab add <nombre>[/cyan] para agregar uno.\n")
+        console.print("  Usa [accent]oolab add <nombre>[/accent] para agregar uno.\n")
         return
 
-    table = Table(show_header=True, header_style="bold")
-    table.add_column("Nombre", style="cyan")
+    table = Table(show_header=True, header_style="heading")
+    table.add_column("Nombre", style="accent")
     table.add_column("Display Name")
     table.add_column("Branch")
     table.add_column("DB Filter")
@@ -42,9 +40,9 @@ def list_tenants():
     for tenant in config.tenants:
         tenant_path = workspace_path / "tenants" / tenant.name
         if tenant_path.exists():
-            status = "[green]✓ clonado[/green]"
+            status = "[success]✓ clonado[/success]"
         else:
-            status = "[red]✗ faltante[/red]"
+            status = "[error]✗ faltante[/error]"
 
         table.add_row(
             tenant.name,

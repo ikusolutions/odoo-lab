@@ -1,14 +1,12 @@
 import shutil
 
 import typer
-from rich.console import Console
 from rich.prompt import Confirm
 
 from oolab.cli import app
 from oolab.commands.generate import generate_all
 from oolab.config import WorkspaceConfig, find_workspace
-
-console = Console()
+from oolab.console import ERR, OK, console
 
 
 @app.command()
@@ -19,7 +17,7 @@ def remove(
     try:
         workspace_path = find_workspace()
     except FileNotFoundError as e:
-        console.print(f"\n  [red]✗ {e}[/red]\n")
+        console.print(f"\n  {ERR} {e}\n")
         raise typer.Exit(1) from None
 
     config = WorkspaceConfig.load(workspace_path)
@@ -27,7 +25,7 @@ def remove(
     # Find tenant
     tenant = next((t for t in config.tenants if t.name == name), None)
     if not tenant:
-        console.print(f"\n  [red]✗[/red] Proyecto '{name}' no encontrado.\n")
+        console.print(f"\n  {ERR} Proyecto '{name}' no encontrado.\n")
         console.print("  Proyectos disponibles:")
         for t in config.tenants:
             console.print(f"    - {t.name}")
@@ -47,18 +45,18 @@ def remove(
         )
         if delete_files:
             shutil.rmtree(tenant_path)
-            console.print(f"  [green]✓[/green] Directorio tenants/{name}/ eliminado")
+            console.print(f"  {OK} Directorio tenants/{name}/ eliminado")
         else:
-            console.print(f"  [dim]  Directorio tenants/{name}/ conservado[/dim]")
+            console.print(f"  [muted]  Directorio tenants/{name}/ conservado[/muted]")
 
     # Update config
     config.tenants = [t for t in config.tenants if t.name != name]
     config.save(workspace_path)
-    console.print("  [green]✓[/green] Proyecto eliminado de oolab.yaml")
+    console.print(f"  {OK} Proyecto eliminado de oolab.yaml")
 
     # Regenerate configs
-    console.print("\n  [bold blue]Regenerando configuraciones...[/bold blue]\n")
+    console.print("\n  [heading]Regenerando configuraciones...[/heading]\n")
     generate_all(workspace_path, config)
     console.print(
-        f"\n  [bold green]Proyecto '{name}' eliminado correctamente.[/bold green]\n"
+        f"\n  [success]Proyecto '{name}' eliminado correctamente.[/success]\n"
     )

@@ -1,14 +1,46 @@
 import json
 
 import typer
-from rich.console import Console
-from rich.table import Table
+from rich.tree import Tree
 
 from oolab.cli import app
 from oolab.config import WorkspaceConfig, find_workspace
+from oolab.console import ERR, console
 from oolab.utils import get_current_branch, run_cmd
 
-console = Console()
+
+def _docker_status(workspace_path, compose_file: str) -> list[tuple[str, str, str]]:
+    """Devuelve [(servicio, estado, puerto), ...] o lista vacía."""
+    if not (workspace_path / "docker" / "docker-compose.yaml").exists():
+        return []
+    result = run_cmd(
+        ["docker", "compose", "-f", compose_file, "ps", "--format", "json"],
+        timeout=15,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return []
+    try:
+        containers = json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    if isinstance(containers, dict):
+        containers = [containers]
+
+    rows: list[tuple[str, str, str]] = []
+    for c in containers:
+        name = c.get("Service", c.get("Name", "?"))
+        state = c.get("State", "unknown")
+        publishers = c.get("Publishers", []) or []
+        ports = (
+            ", ".join(
+                str(p["PublishedPort"])
+                for p in publishers
+                if p.get("PublishedPort", 0) > 0
+            )
+            or "-"
+        )
+        rows.append((name, state, ports))
+    return rows
 
 
 @app.command()
@@ -17,97 +49,75 @@ def status():
     try:
         workspace_path = find_workspace()
     except FileNotFoundError as e:
-        console.print(f"\n  [red]✗ {e}[/red]\n")
+        console.print(f"\n  {ERR} {e}\n")
         raise typer.Exit(1) from None
 
     config = WorkspaceConfig.load(workspace_path)
     compose_file = str(workspace_path / "docker" / "docker-compose.yaml")
     edition = "Community + Enterprise" if config.enterprise_enabled else "Community"
 
-    console.print(
-        f"\n  [bold]{config.name}[/bold] — Odoo {config.odoo_version}.0 ({edition})\n"
+    root = Tree(
+        f"[brand]{config.name}[/brand]  [muted]·[/muted]  Odoo {config.odoo_version}.0  "
+        f"[muted]·[/muted]  {edition}",
+        guide_style="muted",
     )
 
-    # Docker services
-    docker_table = Table(
-        title="Servicios Docker", show_header=True, header_style="bold"
-    )
-    docker_table.add_column("Servicio", style="cyan", width=16)
-    docker_table.add_column("Estado", width=14)
-    docker_table.add_column("Puerto", style="dim")
-
-    if (workspace_path / "docker" / "docker-compose.yaml").exists():
-        result = run_cmd(
-            ["docker", "compose", "-f", compose_file, "ps", "--format", "json"],
-            timeout=15,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            try:
-                containers = json.loads(result.stdout)
-                if isinstance(containers, dict):
-                    containers = [containers]
-                for c in containers:
-                    name = c.get("Service", c.get("Name", "?"))
-                    state = c.get("State", "unknown")
-                    status_str = (
-                        "[green]corriendo[/green]"
-                        if state == "running"
-                        else f"[red]{state}[/red]"
-                    )
-                    publishers = c.get("Publishers", [])
-                    ports = (
-                        ", ".join(
-                            f"{p['PublishedPort']}"
-                            for p in publishers
-                            if p.get("PublishedPort", 0) > 0
-                        )
-                        if publishers
-                        else "-"
-                    )
-                    docker_table.add_row(name, status_str, ports)
-            except (json.JSONDecodeError, TypeError):
-                docker_table.add_row("-", "[yellow]no se pudo leer[/yellow]", "-")
-        else:
-            docker_table.add_row("-", "[dim]detenido[/dim]", "-")
+    # Docker
+    docker_branch = root.add("[heading]Servicios Docker[/heading]")
+    docker_rows = _docker_status(workspace_path, compose_file)
+    if not (workspace_path / "docker" / "docker-compose.yaml").exists():
+        docker_branch.add("[error]sin configurar[/error]")
+    elif not docker_rows:
+        docker_branch.add("[muted]detenido[/muted]")
     else:
-        docker_table.add_row("-", "[red]sin configurar[/red]", "-")
+        for name, state, ports in docker_rows:
+            state_str = (
+                f"[success]{state}[/success]"
+                if state == "running"
+                else f"[error]{state}[/error]"
+            )
+            ports_str = f"  [muted]·  puerto {ports}[/muted]" if ports != "-" else ""
+            docker_branch.add(f"[accent]{name}[/accent]  {state_str}{ports_str}")
 
-    console.print(docker_table)
-
-    # Git branches
-    console.print("\n  [bold]Repositorios:[/bold]")
+    # Repos
+    repos_branch = root.add("[heading]Repositorios[/heading]")
     odoo_path = workspace_path / "odoo"
     if odoo_path.exists():
-        branch = get_current_branch(odoo_path)
-        console.print(f"    odoo/          → [cyan]{branch or '?'}[/cyan]")
+        branch = get_current_branch(odoo_path) or "?"
+        repos_branch.add(f"odoo/  →  [accent]{branch}[/accent]")
+    else:
+        repos_branch.add("[muted]odoo/ no clonado[/muted]")
 
     if config.enterprise_enabled:
         ent_path = workspace_path / "enterprise"
         if ent_path.exists():
-            branch = get_current_branch(ent_path)
-            console.print(f"    enterprise/    → [cyan]{branch or '?'}[/cyan]")
+            branch = get_current_branch(ent_path) or "?"
+            repos_branch.add(f"enterprise/  →  [accent]{branch}[/accent]")
+        else:
+            repos_branch.add("[muted]enterprise/ no clonado[/muted]")
 
     # Tenants
-    if config.tenants:
-        tenant_table = Table(title="Tenants", show_header=True, header_style="bold")
-        tenant_table.add_column("Nombre", style="cyan")
-        tenant_table.add_column("Branch", style="dim")
-        tenant_table.add_column("Enterprise")
-        tenant_table.add_column("Estado")
-
+    tenants_branch = root.add(
+        f"[heading]Tenants[/heading]  [muted]({len(config.tenants)})[/muted]"
+    )
+    if not config.tenants:
+        tenants_branch.add(
+            "[muted]sin proyectos · usa [accent]oolab add[/accent][/muted]"
+        )
+    else:
         for tenant in config.tenants:
             tenant_path = workspace_path / "tenants" / tenant.name
             exists = tenant_path.exists()
-            estado = "[green]✓[/green]" if exists else "[red]✗ faltante[/red]"
-            ent = "[magenta]sí[/magenta]" if tenant.enterprise else "no"
-            branch = ""
             if exists and (tenant_path / ".git").exists():
                 branch = get_current_branch(tenant_path) or tenant.branch
             else:
                 branch = tenant.branch
-            tenant_table.add_row(tenant.name, branch, ent, estado)
+            mark = "[success]✓[/success]" if exists else "[error]✗ faltante[/error]"
+            ent = "  [warn](Enterprise)[/warn]" if tenant.enterprise else ""
+            tenants_branch.add(
+                f"{mark}  [accent]{tenant.name}[/accent]  [muted]·  rama {branch}[/muted]{ent}"
+            )
 
-        console.print()
-        console.print(tenant_table)
-
+    console.print()
+    console.print(root)
     console.print()

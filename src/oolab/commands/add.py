@@ -5,12 +5,14 @@ odoo-lab (oolab) - Copyright (c) 2026 IKU Solutions SAS
 from pathlib import Path
 
 import typer
-from rich.console import Console
+from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 
 from oolab.cli import app, print_banner
 from oolab.commands.generate import generate_all
 from oolab.config import Tenant, WorkspaceConfig, find_workspace, get_venv_python
+from oolab.console import ERR, INFO, OK, WARN, console
+from oolab.progress import step_spinner
 from oolab.scaffold import scaffold_tenant
 from oolab.utils import clone_repo, copy_local, ensure_branch, run_cmd, slugify
 from oolab.venv import _pip_install, install_requirements, setup_venv
@@ -23,8 +25,6 @@ from oolab.versions import (
     normalize_version,
 )
 
-console = Console()
-
 
 def ensure_enterprise(
     workspace_path: Path, config: WorkspaceConfig, branch: str, odoo_version: str
@@ -32,10 +32,10 @@ def ensure_enterprise(
     """Ensure enterprise addons are available, clone/copy if not."""
     ent_path = workspace_path / "enterprise"
     if ent_path.exists() and any(ent_path.iterdir()):
-        console.print("  [green]✓[/green] Enterprise ya disponible")
+        console.print(f"  {OK} Enterprise ya disponible")
         return
 
-    console.print("\n  [blue]ℹ[/blue] Enterprise no está configurado aún.")
+    console.print(f"\n  {INFO} Enterprise no está configurado aún.")
 
     source = Prompt.ask(
         "  ¿Cómo obtener Enterprise?",
@@ -64,11 +64,9 @@ def ensure_enterprise(
     if ent_req.exists():
         python_bin = get_venv_python(workspace_path, config.venv_name)
         if python_bin.exists():
-            with console.status(
-                "  Instalando dependencias de Enterprise...", spinner="dots"
-            ):
+            with step_spinner("Instalando dependencias de Enterprise..."):
                 _pip_install(ent_req, python_bin, "Enterprise", odoo_version)
-            console.print("  [green]✓[/green] Dependencias de Enterprise instaladas")
+            console.print(f"  {OK} Dependencias de Enterprise instaladas")
 
     config.save(workspace_path)
 
@@ -87,12 +85,12 @@ def add(
         False, "--new", "-n", help="Crear proyecto vacío (sin clonar)"
     ),
 ):
-    """Agrega un proyecto de cliente al workspace: clona un repositorio existente o crea uno nuevo con scaffold OCA."""
+    """Agrega un proyecto de cliente al workspace: clona un repositorio existente o crea uno nuevo con scaffold OCA. Atajos: -u/--url, -b/--branch, -d/--display-name, -n/--new."""
     print_banner()
     try:
         workspace_path = find_workspace()
     except FileNotFoundError as e:
-        console.print(f"  [red]✗ {e}[/red]\n")
+        console.print(f"  {ERR} {e}\n")
         raise typer.Exit(1) from None
 
     config = WorkspaceConfig.load(workspace_path)
@@ -106,13 +104,11 @@ def add(
 
     if not name:
         name = slugify(display_name)
-        console.print(f"  [dim]→ Slug: {name}[/dim]")
+        console.print(f"  [muted]→ Slug: {name}[/muted]")
 
     # Check if tenant already exists
     if any(t.name == name for t in config.tenants):
-        console.print(
-            f"\n  [red]✗[/red] El proyecto '{name}' ya existe en este workspace.\n"
-        )
+        console.print(f"\n  {ERR} El proyecto '{name}' ya existe en este workspace.\n")
         raise typer.Exit(1) from None
 
     # Ask Odoo version for this tenant
@@ -123,9 +119,11 @@ def add(
         raw = Prompt.ask(f"  Versión de Odoo [{versions_str}]", default=default_ver)
         normalized = normalize_version(raw)
         if is_valid_version(normalized):
-            console.print(f"  [dim]→ Odoo {normalized}.0[/dim]")
+            console.print(f"  [muted]→ Odoo {normalized}.0[/muted]")
             break
-        console.print(f"  [red]Versión no soportada. Opciones: {versions_str}[/red]")
+        console.print(
+            f"  [error]Versión no soportada. Opciones: {versions_str}[/error]"
+        )
 
     # Ask if enterprise
     is_enterprise = Confirm.ask("  ¿Es un proyecto Enterprise?", default=False)
@@ -145,7 +143,7 @@ def add(
     # Ensure Odoo framework exists and is on the correct branch
     odoo_path = workspace_path / "odoo"
     if not odoo_path.exists() or not any(odoo_path.iterdir()):
-        console.print("\n  [blue]ℹ[/blue] Odoo framework no encontrado. Clonando...")
+        console.print(f"\n  {INFO} Odoo framework no encontrado. Clonando...")
         clone_repo(
             config.community_url,
             odoo_path,
@@ -171,7 +169,7 @@ def add(
         # Install requirements from the correct branch
         install_requirements(workspace_path, venv_name, config)
     else:
-        console.print(f"  [green]✓[/green] Entorno {venv_name} disponible")
+        console.print(f"  {OK} Entorno {venv_name} disponible")
 
     tenant = Tenant(
         name=name,
@@ -194,13 +192,13 @@ def add(
         # Install pre-commit hooks if config is present
         precommit_cfg = tenant_path / ".pre-commit-config.yaml"
         if precommit_cfg.exists():
-            with console.status("  Instalando pre-commit hooks...", spinner="dots"):
+            with step_spinner("Instalando pre-commit hooks..."):
                 result = run_cmd(["pre-commit", "install"], cwd=str(tenant_path))
             if result.returncode == 0:
-                console.print("  [green]✓[/green] pre-commit hooks instalados")
+                console.print(f"  {OK} pre-commit hooks instalados")
             else:
                 console.print(
-                    f"  [yellow]⚠[/yellow] pre-commit no disponible o falló: {result.stderr.strip()[:200]}"
+                    f"  {WARN} pre-commit no disponible o falló: {result.stderr.strip()[:200]}"
                 )
 
         # Install tenant requirements if present
@@ -208,54 +206,59 @@ def add(
         if tenant_req.exists():
             python_bin = get_venv_python(workspace_path, venv_name)
             if python_bin.exists():
-                with console.status(
-                    f"  Instalando dependencias de {display_name}...", spinner="dots"
-                ):
+                with step_spinner(f"Instalando dependencias de {display_name}..."):
                     ok = _pip_install(tenant_req, python_bin, display_name, normalized)
                 if ok:
-                    console.print(
-                        f"  [green]✓[/green] Dependencias de {display_name} instaladas"
-                    )
+                    console.print(f"  {OK} Dependencias de {display_name} instaladas")
                 else:
                     console.print(
-                        f"  [yellow]⚠[/yellow] Algunas dependencias de {display_name} no se instalaron"
+                        f"  {WARN} Algunas dependencias de {display_name} no se instalaron"
                     )
     else:
         scaffold_tenant(tenant_path, display_name, normalized)
-        console.print(
-            f"  [green]✓[/green] Proyecto tenants/{name}/ creado con estructura OCA"
-        )
+        console.print(f"  {OK} Proyecto tenants/{name}/ creado con estructura OCA")
 
     # Update config
     config.tenants.append(tenant)
     config.save(workspace_path)
-    console.print("  [green]✓[/green] Proyecto agregado a oolab.yaml")
+    console.print(f"  {OK} Proyecto agregado a oolab.yaml")
 
     # Regenerate configs
-    console.print("\n  [bold blue]Regenerando configuraciones...[/bold blue]\n")
+    console.print("\n  [heading]Regenerando configuraciones...[/heading]\n")
     generate_all(workspace_path, config)
 
     edition = "Enterprise" if is_enterprise else "Community"
-    ent_tag = " [magenta](Enterprise)[/magenta]" if is_enterprise else ""
+    ent_tag = " [warn](Enterprise)[/warn]" if is_enterprise else ""
 
+    summary = (
+        f"  [bold]Proyecto:[/bold]   {display_name}{ent_tag}\n"
+        f"  [bold]Versión:[/bold]    Odoo {normalized}.0 ({edition})\n"
+        f"  [bold]Slug:[/bold]       [accent]{name}[/accent]\n"
+        f"  [bold]DB filter:[/bold]  [accent]{tenant.db_filter}[/accent]\n"
+        f"  [bold]Addons:[/bold]     tenants/{name}/"
+    )
+    console.print()
     console.print(
-        f"\n  [bold green]✓ Proyecto '{display_name}' ({edition}) agregado correctamente.[/bold green]\n"
+        Panel(
+            summary,
+            title="[success]Proyecto agregado[/success]",
+            border_style="success",
+        )
     )
 
-    console.print("  [bold cyan]Cómo ejecutar:[/bold cyan]\n")
-    console.print("  [bold]1.[/bold] En VSCode, presiona [bold]F5[/bold] y selecciona:")
-    console.print(f"     [green]▸[/green] [bold]{display_name}[/bold]{ent_tag}")
+    console.print("\n  [brand]Cómo ejecutar:[/brand]\n")
     console.print(
-        f"\n  [bold]2.[/bold] Base de datos (db-filter): [cyan]{tenant.db_filter}[/cyan]"
-    )
-    console.print("     Odoo creará o usará una BD con este filtro al arrancar.")
-    console.print(
-        "     Puedes crearla desde [cyan]http://localhost:8069/web/database/manager[/cyan]"
+        f"  [bold]1.[/bold] VSCode  →  [bold]F5[/bold]  →  [accent]{display_name}[/accent]{ent_tag}"
     )
     console.print(
-        f"\n  [bold]3.[/bold] Addons del proyecto en: [cyan]tenants/{name}/[/cyan]"
+        f"  [bold]2.[/bold] Base de datos: crea una con el filtro [accent]{tenant.db_filter}[/accent]"
     )
-    console.print("     Coloca tus módulos ahí con la estructura estándar de Odoo.\n")
     console.print(
-        "  [dim]Más info: README.md | oolab list | oolab -h | https://github.com/ikusolutions/odoo-lab[/dim]\n"
+        "     desde [accent]http://localhost:8069/web/database/manager[/accent]"
+    )
+    console.print(
+        f"  [bold]3.[/bold] Coloca módulos en [accent]tenants/{name}/[/accent]\n"
+    )
+    console.print(
+        "  [muted]Más info: oolab list | oolab -h | https://github.com/ikusolutions/odoo-lab[/muted]\n"
     )

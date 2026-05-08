@@ -11,7 +11,7 @@ oolab init
 ```
 
 El wizard te preguntara:
-1. **Version de Odoo** (16, 17, 18, 19)
+1. **Version de Odoo** (15, 16, 17, 18, 19)
 2. **Enterprise** (si/no — necesitas licencia propia)
 3. **Primer proyecto** (nombre, clonar repo o crear vacio)
 
@@ -38,6 +38,29 @@ oolab add
 ```
 
 El CLI te pedira nombre, version de Odoo, si es Enterprise, y si quieres clonar un repo o crear un proyecto vacio.
+
+## Instalar / actualizar modulos
+
+Una vez creada la base de datos, usa la CLI (no hace falta editar `launch.json`):
+
+```bash
+# Instalar
+oolab module-install mi-cliente sale,purchase,stock
+
+# Actualizar uno o varios (acepta 'all')
+oolab module-update mi-cliente sale
+oolab module-update mi-cliente all
+
+# Shell ORM interactiva
+oolab open-shell mi-cliente
+
+# Resetear contrasena del admin
+oolab reset-pwd mi-cliente nuevoPass
+```
+
+Estos comandos resuelven automaticamente el venv, `addons-path` y
+`odoo.conf` segun la version de Odoo del tenant. Atajos: `-d/--db`,
+`-m/--modules`, `-p/--password`, `-l/--login`, `-t/--timeout`.
 
 ## Ejemplo completo
 

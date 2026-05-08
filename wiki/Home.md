@@ -25,9 +25,13 @@ Desarrollado por **[IKU Solutions SAS](https://www.iku.solutions)** | Autor: **Y
 ### Caracteristicas
 
 - **Multi-proyecto** — multiples clientes/tenants en un solo workspace
-- **Multi-version** — Odoo 16, 17, 18, 19
+- **Multi-version** — Odoo 15, 16, 17, 18 y 19 con venvs separados
 - **Enterprise ready** — integra Odoo Enterprise (requiere licencia propia)
-- **VSCode integrado** — launch.json con debug configs por proyecto
-- **Entornos aislados** — venvs por version (`.venv-v19`, `.venv-v18`)
-- **Scaffold OCA** — estructura de calidad para proyectos nuevos
+- **VSCode integrado** — `launch.json` con una entrada de debug por proyecto (F5)
+- **Gestion de modulos por CLI** — `module-install`, `module-update` y `open-shell` con barra de progreso parseando logs de `odoo-bin` en vivo
+- **Auto-deteccion de addons** — encuentra modulos en `src/`, `vendor/OCA/`, `vendor/Cybrosys/`, etc., sin configuracion manual
+- **Entornos aislados** — venvs por version (`.venv-v19`, `.venv-v18`, ...)
+- **Scaffold OCA** — estructura de calidad para proyectos nuevos (pre-commit, ruff, pylint)
+- **Servicios Docker** — `start`, `stop`, `status`, `logs` con coloreo por nivel
+- **Comando repair** — reinstala paquetes core sin reinicializar el workspace
 - **Multi-plataforma** — macOS, Linux, Windows

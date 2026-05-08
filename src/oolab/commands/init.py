@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import typer
-from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 
@@ -9,6 +8,7 @@ from oolab.cli import app, print_banner
 from oolab.commands.doctor import DEPENDENCIES, check_dependency, offer_install_uv
 from oolab.commands.generate import generate_all
 from oolab.config import Tenant, WorkspaceConfig
+from oolab.console import ERR, INFO, OK, WARN, console
 from oolab.scaffold import scaffold_tenant
 from oolab.utils import clone_repo, copy_local, slugify
 from oolab.venv import install_requirements, setup_venv
@@ -21,30 +21,26 @@ from oolab.versions import (
     normalize_version,
 )
 
-console = Console()
-
 WORKSPACE_DIR_NAME = "odoo-launchpad"
 
 
 def check_system_deps() -> bool:
     """Check system dependencies, offer to install uv if missing."""
-    console.print(
-        "\n  [bold blue]Verificando dependencias del sistema...[/bold blue]\n"
-    )
+    console.print("\n  [heading]Verificando dependencias del sistema...[/heading]\n")
     all_ok = True
 
     for dep in DEPENDENCIES:
         ok, version = check_dependency(dep)
         if ok:
             console.print(
-                f"  [green]✓[/green] {dep['name']} encontrado ({version.split()[-1] if version else ''})"
+                f"  {OK} {dep['name']} encontrado ({version.split()[-1] if version else ''})"
             )
         elif dep["name"] == "uv":
-            console.print("  [yellow]⚠[/yellow] uv no encontrado")
+            console.print(f"  {WARN} uv no encontrado")
             if not offer_install_uv():
                 all_ok = False
         else:
-            console.print(f"  [red]✗[/red] {dep['name']} no encontrado")
+            console.print(f"  {ERR} {dep['name']} no encontrado")
             console.print(f"    {dep['hint']}")
             all_ok = False
 
@@ -62,9 +58,13 @@ def ask_odoo_version() -> str:
         normalized = normalize_version(raw)
         if is_valid_version(normalized):
             python_ver = get_python_version(normalized)
-            console.print(f"  [dim]→ Odoo {normalized}.0 — Python {python_ver}[/dim]")
+            console.print(
+                f"  [muted]→ Odoo {normalized}.0 — Python {python_ver}[/muted]"
+            )
             return normalized
-        console.print(f"  [red]Versión no soportada. Opciones: {versions_str}[/red]")
+        console.print(
+            f"  [error]Versión no soportada. Opciones: {versions_str}[/error]"
+        )
 
 
 def ask_enterprise() -> tuple[bool, str, str]:
@@ -100,7 +100,7 @@ def ask_first_tenant(odoo_version: str, enterprise_enabled: bool) -> Tenant | No
 
     display_name = Prompt.ask("  Nombre del proyecto")
     name = slugify(display_name)
-    console.print(f"  [dim]→ Slug: {name}[/dim]")
+    console.print(f"  [muted]→ Slug: {name}[/muted]")
 
     is_enterprise = False
     if enterprise_enabled:
@@ -145,7 +145,7 @@ def init():
     while check != check.parent:
         if (check / "oolab.yaml").exists():
             console.print(
-                f"  [red]✗[/red] Ya estás dentro de un workspace odoo-launchpad: {check}"
+                f"  {ERR} Ya estás dentro de un workspace odoo-launchpad: {check}"
             )
             console.print("  No se puede crear un workspace anidado.\n")
             raise typer.Exit(1)
@@ -153,7 +153,7 @@ def init():
 
     if workspace_path.exists():
         console.print(
-            f"  [red]✗[/red] El directorio '{WORKSPACE_DIR_NAME}' ya existe en {cwd}"
+            f"  {ERR} El directorio '{WORKSPACE_DIR_NAME}' ya existe en {cwd}"
         )
         console.print("  Elimínalo o navega a otro directorio.\n")
         raise typer.Exit(1)
@@ -161,7 +161,7 @@ def init():
     # 1. Check dependencies
     if not check_system_deps():
         console.print(
-            "\n  [red]Corrige las dependencias faltantes antes de continuar.[/red]\n"
+            "\n  [error]Corrige las dependencias faltantes antes de continuar.[/error]\n"
         )
         raise typer.Exit(1)
 
@@ -183,14 +183,14 @@ def init():
         config.tenants.append(tenant)
 
     # 4. Create workspace structure
-    console.print(f"\n  [blue]ℹ[/blue] Creando workspace en {workspace_path}...")
+    console.print(f"\n  {INFO} Creando workspace en {workspace_path}...")
     workspace_path.mkdir(parents=True)
     (workspace_path / "tenants").mkdir()
     (workspace_path / "config" / "odoo").mkdir(parents=True)
     (workspace_path / "config" / "nginx").mkdir(parents=True)
     (workspace_path / "docker").mkdir()
     (workspace_path / ".vscode").mkdir()
-    console.print("  [green]✓[/green] Estructura de directorios creada")
+    console.print(f"  {OK} Estructura de directorios creada")
 
     # 5. Clone Odoo Community
     branch = get_branch_name(odoo_version)
@@ -201,7 +201,7 @@ def init():
         f"Odoo Community {branch}",
     )
     if not ok:
-        console.print("\n  [red]No se pudo clonar Odoo. Abortando.[/red]\n")
+        console.print("\n  [error]No se pudo clonar Odoo. Abortando.[/error]\n")
         raise typer.Exit(1)
 
     # 6. Enterprise
@@ -231,13 +231,11 @@ def init():
     elif tenant:
         tenant_path = workspace_path / "tenants" / tenant.name
         scaffold_tenant(tenant_path, tenant.display_name, odoo_version)
-        console.print(
-            f"\n  [green]✓[/green] Proyecto {tenant.name} creado con estructura OCA"
-        )
+        console.print(f"\n  {OK} Proyecto {tenant.name} creado con estructura OCA")
 
     # 8. Save config & generate files
     config.save(workspace_path)
-    console.print("\n  [bold blue]Generando configuraciones...[/bold blue]\n")
+    console.print("\n  [heading]Generando configuraciones...[/heading]\n")
     generate_all(workspace_path, config)
 
     # 9. Setup venv
@@ -255,7 +253,7 @@ def init():
     console.print(Panel(summary, title="Workspace listo", style="bold green"))
 
     # Next steps
-    console.print("  [bold cyan]Próximos pasos:[/bold cyan]\n")
+    console.print("  [brand]Próximos pasos:[/brand]\n")
     console.print("  [bold]1.[/bold] Abre el workspace en VSCode:")
     console.print(f"     [cyan]code {workspace_path}[/cyan]\n")
     console.print(

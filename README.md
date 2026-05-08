@@ -34,13 +34,14 @@ Resuelve problemas reales del día a día:
 - **Multi-proyecto**: gestiona múltiples clientes/tenants en un solo workspace
 - **Multi-versión**: soporte para Odoo 15, 16, 17, 18 y 19 con venvs separados por versión
 - **Enterprise ready**: integra Odoo Enterprise via git o copia local (requiere licencia propia)
-- **VSCode integrado**: genera `launch.json` con configs de debug por proyecto (run, shell, install, update)
+- **VSCode integrado**: genera `launch.json` con una entrada de debug por proyecto (F5 → arranca Odoo con su `db-filter`)
+- **Gestión de módulos por CLI**: `module-install`, `module-update` y `open-shell` con barra de progreso parseando logs de `odoo-bin` en vivo
 - **Auto-detección de addons**: escanea la estructura del proyecto y detecta todos los directorios con módulos Odoo automáticamente, sin importar si están en `src/`, `vendor/OCA/`, `vendor/Cybrosys/` u otra estructura
 - **Entornos aislados**: venvs por versión de Odoo (`.venv-v15`, `.venv-v19`)
 - **Dependencias robustas**: instalación con `uv` + compatibilidad automática con macOS arm64 + fallback paquete por paquete
 - **Comando repair**: repara workspaces con paquetes Python rotos sin tener que reinicializar
 - **Docker integrado**: comandos `start`, `stop`, `logs` y `status` para gestionar los servicios del workspace
-- **Interactivo**: wizard paso a paso con spinners y feedback visual en tiempo real
+- **UX consistente**: tema unificado, spinners con tiempo transcurrido, barras de progreso con ETA y logs coloreados por servicio
 - **Multi-plataforma**: compatible con macOS, Linux y Windows
 
 ---
@@ -149,15 +150,25 @@ code .
 | `oolab start --build` | Levanta reconstruyendo imágenes Docker |
 | `oolab stop` | Detiene los servicios Docker |
 | `oolab status` | Muestra el estado: servicios activos, branches y tenants |
-| `oolab logs [servicio]` | Muestra logs de los servicios (`db`, `nginx`) |
+| `oolab logs [servicio]` | Muestra logs de los servicios (`db`, `nginx`) coloreados por nivel |
 | `oolab logs -f` | Sigue los logs en tiempo real |
+| `oolab logs -n <N>` | Limita las últimas `N` líneas (default 50) |
 
-### Base de datos
+### Módulos y base de datos
 
 | Comando | Descripción |
 |---------|-------------|
-| `oolab reset-pwd <db> <password>` | Resetea la contraseña del usuario admin en una base de datos local |
-| `oolab reset-pwd <db> <password> --login <login>` | Resetea la contraseña del usuario especificado |
+| `oolab module-install <db> <mods>` | Instala módulos en una DB. Acepta lista coma-separada (`sale,purchase`) |
+| `oolab module-update <db> <mods>` | Actualiza módulos en una DB. Acepta `all` para todos |
+| `oolab open-shell <db>` | Abre una shell ORM interactiva contra una DB |
+| `oolab reset-pwd <db> <password>` | Resetea la contraseña del usuario admin (`base.user_admin`) |
+| `oolab reset-pwd -d <db> -p <pwd> -l <login>` | Cambia también el login del admin |
+
+Atajos comunes: `-d/--db`, `-m/--modules`, `-p/--password`, `-l/--login`,
+`-t/--timeout` (default 1800s en `module-install`/`module-update`).
+Estos comandos resuelven automáticamente venv, addons-path y
+`odoo.conf` desde `oolab.yaml`, matchean el tenant por `db_filter` o
+`name`, y muestran progreso en vivo parseando los logs de `odoo-bin`.
 
 ### Diagnóstico
 
@@ -189,7 +200,7 @@ odoo-launchpad/
 ├── docker/
 │   └── docker-compose.yaml
 ├── .vscode/
-│   ├── launch.json         # Configs de debug: por tenant + Shell + Update + Install
+│   ├── launch.json         # Una entrada de debug por tenant (F5)
 │   ├── settings.json
 │   └── tasks.json
 ├── .venv-v15/              # Venv para Odoo 15 (Python 3.10)

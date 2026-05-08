@@ -1,13 +1,12 @@
 import subprocess
 
 import typer
-from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 
 from oolab.cli import app
+from oolab.console import console
 from oolab.utils import run_cmd
-
-console = Console()
 
 DEPENDENCIES = [
     {
@@ -85,12 +84,12 @@ def offer_install_uv() -> bool:
 @app.command()
 def doctor():
     """Verifica dependencias del sistema: git, Docker, uv y Python. Ofrece instalar uv si no está disponible."""
-    console.print("\n  Verificando dependencias del sistema...\n", style="bold blue")
+    console.print("\n  [heading]Verificando dependencias del sistema...[/heading]\n")
 
-    table = Table(show_header=True, header_style="bold")
-    table.add_column("Dependencia", style="cyan", width=16)
-    table.add_column("Estado", width=10)
-    table.add_column("Detalle", style="dim")
+    table = Table(show_header=True, header_style="heading", box=None, pad_edge=False)
+    table.add_column("Dependencia", style="accent", width=16)
+    table.add_column("Estado", width=8, justify="center")
+    table.add_column("Detalle", style="muted")
 
     all_ok = True
     uv_missing = False
@@ -98,16 +97,15 @@ def doctor():
     for dep in DEPENDENCIES:
         ok, version = check_dependency(dep)
         if ok:
-            table.add_row(dep["name"], "[green]✓[/green]", version)
+            table.add_row(dep["name"], "[success]✓[/success]", version)
+        elif dep["name"] == "uv":
+            uv_missing = True
+            table.add_row(dep["name"], "[warn]⚠[/warn]", "No encontrado")
+        elif dep["required"]:
+            all_ok = False
+            table.add_row(dep["name"], "[error]✗[/error]", dep["hint"])
         else:
-            if dep["name"] == "uv":
-                uv_missing = True
-                table.add_row(dep["name"], "[yellow]⚠[/yellow]", "No encontrado")
-            elif dep["required"]:
-                all_ok = False
-                table.add_row(dep["name"], "[red]✗[/red]", dep["hint"])
-            else:
-                table.add_row(dep["name"], "[yellow]⚠[/yellow]", dep["hint"])
+            table.add_row(dep["name"], "[warn]⚠[/warn]", dep["hint"])
 
     console.print(table)
 
@@ -116,15 +114,24 @@ def doctor():
         installed = offer_install_uv()
         if not installed:
             all_ok = False
-            console.print(
-                "\n  [yellow]uv es necesario. Instálalo manualmente:[/yellow]"
-            )
+            console.print("\n  [warn]uv es necesario. Instálalo manualmente:[/warn]")
             console.print("  curl -LsSf https://astral.sh/uv/install.sh | sh\n")
 
+    console.print()
     if all_ok:
         console.print(
-            "\n  [bold green]Todas las dependencias están disponibles.[/bold green]\n"
+            Panel(
+                "[success]Todas las dependencias están disponibles[/success]",
+                border_style="success",
+                padding=(0, 2),
+            )
         )
     else:
-        console.print("\n  [bold red]Faltan dependencias requeridas.[/bold red]\n")
+        console.print(
+            Panel(
+                "[error]Faltan dependencias requeridas[/error]",
+                border_style="error",
+                padding=(0, 2),
+            )
+        )
         raise typer.Exit(1)

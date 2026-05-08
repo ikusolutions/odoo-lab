@@ -4,9 +4,9 @@ Copyright (c) 2026 IKU Solutions SAS - https://www.iku.solutions
 """
 
 import typer
-from rich.console import Console
 
 from oolab import __author__, __company__, __email__, __version__, __website__
+from oolab.console import console
 
 BANNER = r"""
           [bold cyan] ██████   ██████  ██       █████  ██████[/bold cyan]
@@ -26,7 +26,6 @@ app = typer.Typer(
     rich_markup_mode="rich",
     epilog=EPILOG,
 )
-console = Console()
 
 
 def print_banner():
@@ -62,6 +61,9 @@ from oolab.commands import (
     init,
     list,
     logs,
+    module_install,
+    module_update,
+    open_shell,
     remove,
     repair,
     reset_pwd,
@@ -78,6 +80,9 @@ __all__ = [
     "init",
     "list",
     "logs",
+    "module_install",
+    "module_update",
+    "open_shell",
     "remove",
     "repair",
     "reset_pwd",

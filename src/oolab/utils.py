@@ -4,9 +4,17 @@ import subprocess
 import unicodedata
 from pathlib import Path
 
-from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 
-console = Console()
+from oolab.console import ERR, OK, WARN, console
+from oolab.progress import step_spinner
 
 
 def run_cmd(
@@ -23,55 +31,114 @@ def slugify(text: str) -> str:
     return text.strip("-")
 
 
+_GIT_PROGRESS_RE = re.compile(
+    r"(?P<phase>Receiving objects|Resolving deltas|Counting objects|Compressing objects):\s+(?P<percent>\d+)%"
+)
+
+
+def _git_clone_with_progress(
+    cmd: list[str], label: str, timeout: int = 300
+) -> tuple[int, str]:
+    """Ejecuta git clone con --progress y muestra una barra Rich basada en el output.
+
+    Returns: (returncode, stderr_text)
+    """
+    full_cmd = cmd + ["--progress"]
+
+    if not console.is_terminal:
+        result = subprocess.run(
+            full_cmd, capture_output=True, text=True, timeout=timeout
+        )
+        return result.returncode, result.stderr
+
+    columns = [
+        SpinnerColumn(style="accent"),
+        TextColumn(f"[bold]Clonando {label}[/bold]"),
+        TextColumn("[muted]·[/muted]"),
+        TextColumn("[accent]{task.fields[phase]}[/accent]"),
+        BarColumn(bar_width=None, complete_style="accent", finished_style="success"),
+        TaskProgressColumn(),
+        TextColumn("[muted]·[/muted]"),
+        TimeElapsedColumn(),
+    ]
+
+    stderr_buf: list[str] = []
+    with Progress(*columns, console=console, transient=True, expand=True) as progress:
+        task = progress.add_task("clone", total=100, phase="iniciando")
+        proc = subprocess.Popen(
+            full_cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+        assert proc.stderr is not None
+        for line in proc.stderr:
+            stderr_buf.append(line)
+            match = _GIT_PROGRESS_RE.search(line)
+            if match:
+                progress.update(
+                    task,
+                    completed=int(match.group("percent")),
+                    phase=match.group("phase"),
+                )
+        proc.wait(timeout=timeout)
+        progress.update(
+            task, completed=100, phase="listo" if proc.returncode == 0 else "error"
+        )
+
+    return proc.returncode, "".join(stderr_buf)
+
+
 def clone_repo(
     url: str, dest: Path, branch: str, label: str, fallback_to_default: bool = False
 ) -> bool:
-    with console.status(f"  Clonando {label}...", spinner="dots"):
-        result = run_cmd(
-            [
-                "git",
-                "clone",
-                "--depth",
-                "1",
-                "--no-single-branch",
-                "--branch",
-                branch,
-                url,
-                str(dest),
-            ],
-            timeout=300,
-        )
-    if result.returncode == 0:
-        console.print(f"  [green]✓[/green] {label} clonado correctamente")
+    base_cmd = [
+        "git",
+        "clone",
+        "--depth",
+        "1",
+        "--no-single-branch",
+        "--branch",
+        branch,
+        url,
+        str(dest),
+    ]
+    rc, stderr = _git_clone_with_progress(base_cmd, label)
+    if rc == 0:
+        console.print(f"  {OK} {label} clonado correctamente")
         return True
 
-    if fallback_to_default and "not found" in result.stderr:
+    if fallback_to_default and "not found" in stderr:
         console.print(
-            f"  [yellow]⚠[/yellow] Branch '{branch}' no encontrado, clonando rama por defecto..."
+            f"  {WARN} Branch '{branch}' no encontrado, clonando rama por defecto..."
         )
-        with console.status(
-            f"  Clonando {label} (rama por defecto)...", spinner="dots"
-        ):
-            result = run_cmd(
-                ["git", "clone", "--depth", "1", "--no-single-branch", url, str(dest)],
-                timeout=300,
-            )
-        if result.returncode == 0:
-            console.print(f"  [green]✓[/green] {label} clonado (rama por defecto)")
+        fallback_cmd = [
+            "git",
+            "clone",
+            "--depth",
+            "1",
+            "--no-single-branch",
+            url,
+            str(dest),
+        ]
+        rc, stderr = _git_clone_with_progress(fallback_cmd, f"{label} (default)")
+        if rc == 0:
+            console.print(f"  {OK} {label} clonado (rama por defecto)")
             return True
 
-    console.print(f"  [red]✗[/red] Error clonando {label}: {result.stderr.strip()}")
+    console.print(f"  {ERR} Error clonando {label}: {stderr.strip()[:300]}")
     return False
 
 
 def copy_local(src: str, dest: Path, label: str) -> bool:
     src_path = Path(src).expanduser().resolve()
     if not src_path.exists():
-        console.print(f"  [red]✗[/red] Path no existe: {src_path}")
+        console.print(f"  {ERR} Path no existe: {src_path}")
         return False
-    with console.status(f"  Copiando {label}...", spinner="dots"):
+    with step_spinner(f"Copiando {label}..."):
         shutil.copytree(src_path, dest, dirs_exist_ok=True)
-    console.print(f"  [green]✓[/green] {label} copiado")
+    console.print(f"  {OK} {label} copiado")
     return True
 
 
@@ -130,14 +197,14 @@ def get_current_branch(repo_path: Path) -> str:
 def ensure_branch(repo_path: Path, target_branch: str, label: str):
     current = get_current_branch(repo_path)
     if current == target_branch:
-        console.print(f"  [green]✓[/green] {label} en branch {target_branch}")
+        console.print(f"  {OK} {label} en branch {target_branch}")
         return
 
     console.print(
-        f"  [blue]ℹ[/blue] {label} en branch [yellow]{current}[/yellow], cambiando a [cyan]{target_branch}[/cyan]..."
+        f"  [info_mark]ℹ[/info_mark] {label} en branch [warn]{current}[/warn], cambiando a [accent]{target_branch}[/accent]..."
     )
 
-    with console.status(f"  Cambiando {label} a {target_branch}...", spinner="dots"):
+    with step_spinner(f"Cambiando {label} a {target_branch}..."):
         run_cmd(
             ["git", "fetch", "--depth", "1", "origin", target_branch],
             cwd=str(repo_path),
@@ -152,9 +219,7 @@ def ensure_branch(repo_path: Path, target_branch: str, label: str):
             )
 
     if result.returncode == 0:
-        console.print(f"  [green]✓[/green] {label} cambiado a branch {target_branch}")
+        console.print(f"  {OK} {label} cambiado a branch {target_branch}")
     else:
-        console.print(
-            f"  [red]✗[/red] No se pudo cambiar {label} a branch {target_branch}"
-        )
-        console.print(f"  [dim]  {result.stderr.strip()}[/dim]")
+        console.print(f"  {ERR} No se pudo cambiar {label} a branch {target_branch}")
+        console.print(f"  [muted]  {result.stderr.strip()}[/muted]")

@@ -2,13 +2,11 @@ import re
 import tempfile
 from pathlib import Path
 
-from rich.console import Console
-
 from oolab.config import WorkspaceConfig, get_venv_python
+from oolab.console import ERR, OK, WARN, console
+from oolab.progress import make_progress, step_spinner
 from oolab.utils import run_cmd
 from oolab.versions import get_branch_name
-
-console = Console()
 
 # Packages that must always be installed regardless of requirements.txt
 # psycopg2-binary bundles libpq — no system headers needed
@@ -70,23 +68,19 @@ CRITICAL_IMPORTS = {
 def setup_venv(workspace_path: Path, venv_name: str, python_version: str) -> bool:
     venv_path = workspace_path / venv_name
     if venv_path.exists():
-        console.print(f"  [green]✓[/green] {venv_name} ya existe, reutilizando")
+        console.print(f"  {OK} {venv_name} ya existe, reutilizando")
         return True
 
-    with console.status(
-        f"  Creando {venv_name} (Python {python_version})...", spinner="dots"
-    ):
+    with step_spinner(f"Creando {venv_name} (Python {python_version})..."):
         result = run_cmd(
             ["uv", "venv", "--python", python_version, str(venv_path)],
             cwd=str(workspace_path),
         )
     if result.returncode == 0:
-        console.print(
-            f"  [green]✓[/green] {venv_name} creado (Python {python_version})"
-        )
+        console.print(f"  {OK} {venv_name} creado (Python {python_version})")
         return True
     else:
-        console.print(f"  [red]✗[/red] Error creando venv: {result.stderr.strip()}")
+        console.print(f"  {ERR} Error creando venv: {result.stderr.strip()}")
         return False
 
 
@@ -130,6 +124,20 @@ def _make_patched_requirements(
     return Path(tmp.name)
 
 
+def _parse_packages(req_content: str) -> list[tuple[str, str]]:
+    """Devuelve [(line, pkg_name), ...] para cada paquete instalable del requirements."""
+    packages: list[tuple[str, str]] = []
+    for line in req_content.strip().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or line.startswith("-"):
+            continue
+        pkg_part = line.split(";")[0].split("#")[0].strip()
+        pkg_name = re.split(r"[>=<!\[~]", pkg_part)[0].strip()
+        if pkg_name:
+            packages.append((line, pkg_name))
+    return packages
+
+
 def _pip_install(
     requirements: Path,
     python_bin: Path,
@@ -138,70 +146,76 @@ def _pip_install(
 ) -> bool:
     patched = _make_patched_requirements(requirements, odoo_version)
     try:
-        result = run_cmd(
-            ["uv", "pip", "install", "-r", str(patched), "--python", str(python_bin)],
-            timeout=600,
-        )
-        if result.returncode == 0:
-            return True
-        if result.stderr.strip():
-            console.print(f"  [dim red]  {result.stderr.strip()[:300]}[/dim red]")
-    finally:
-        patched.unlink(missing_ok=True)
-
-    console.print(f"  [yellow]⚠[/yellow] Instalando {label} paquete por paquete...")
-    # Use patched content (VERSION_FIXES + BINARY_ALTERNATIVES already applied)
-    patched2 = _make_patched_requirements(requirements, odoo_version)
-    req_content = patched2.read_text()
-    patched2.unlink(missing_ok=True)
-    failed = []
-    seen = set()
-
-    for line in req_content.strip().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or line.startswith("-"):
-            continue
-
-        pkg_part = line.split(";")[0].split("#")[0].strip()
-        pkg_name = re.split(r"[>=<!\[~]", pkg_part)[0].strip()
-        if not pkg_name:
-            continue
-
-        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
-        tmp.write(line + "\n")
-        tmp.close()
-        tmp_path = Path(tmp.name)
-
-        try:
-            r = run_cmd(
+        with step_spinner(f"Instalando {label} (bulk)..."):
+            result = run_cmd(
                 [
                     "uv",
                     "pip",
                     "install",
                     "-r",
-                    str(tmp_path),
+                    str(patched),
                     "--python",
                     str(python_bin),
                 ],
-                timeout=120,
+                timeout=600,
             )
-            if r.returncode != 0:
-                if r.stderr.strip():
-                    console.print(
-                        f"  [dim red]  {pkg_name}: {r.stderr.strip()[:200]}[/dim red]"
-                    )
-                if pkg_name not in seen:
-                    failed.append(pkg_name)
-                    seen.add(pkg_name)
-        finally:
-            tmp_path.unlink(missing_ok=True)
+        if result.returncode == 0:
+            return True
+        if result.stderr.strip():
+            console.print(f"  [muted]  {result.stderr.strip()[:300]}[/muted]")
+    finally:
+        patched.unlink(missing_ok=True)
+
+    # Fallback: paquete-por-paquete con barra de progreso real
+    console.print(f"  {WARN} Instalando {label} paquete por paquete...")
+    patched2 = _make_patched_requirements(requirements, odoo_version)
+    packages = _parse_packages(patched2.read_text())
+    patched2.unlink(missing_ok=True)
+
+    failed: list[str] = []
+    seen: set[str] = set()
+
+    progress = make_progress()
+    with progress:
+        task_id = progress.add_task(label, total=len(packages))
+        for line, pkg_name in packages:
+            progress.update(
+                task_id, description=f"{label} · [accent]{pkg_name}[/accent]"
+            )
+            tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
+            tmp.write(line + "\n")
+            tmp.close()
+            tmp_path = Path(tmp.name)
+
+            try:
+                r = run_cmd(
+                    [
+                        "uv",
+                        "pip",
+                        "install",
+                        "-r",
+                        str(tmp_path),
+                        "--python",
+                        str(python_bin),
+                    ],
+                    timeout=120,
+                )
+                if r.returncode != 0:
+                    if r.stderr.strip():
+                        progress.console.print(
+                            f"  [muted]  {pkg_name}: {r.stderr.strip()[:200]}[/muted]"
+                        )
+                    if pkg_name not in seen:
+                        failed.append(pkg_name)
+                        seen.add(pkg_name)
+            finally:
+                tmp_path.unlink(missing_ok=True)
+            progress.advance(task_id)
 
     if failed:
+        console.print(f"  {WARN} Paquetes no instalados: {', '.join(failed)}")
         console.print(
-            f"  [yellow]⚠[/yellow] Paquetes no instalados: {', '.join(failed)}"
-        )
-        console.print(
-            "  [dim]  Puede que necesites dependencias del sistema (libpq-dev, libldap2-dev, libsasl2-dev)[/dim]"
+            "  [muted]  Puede que necesites dependencias del sistema (libpq-dev, libldap2-dev, libsasl2-dev)[/muted]"
         )
         return False
 
@@ -210,18 +224,16 @@ def _pip_install(
 
 def _install_core_packages(python_bin: Path) -> None:
     """Install critical packages explicitly — never rely on requirements.txt for these."""
-    with console.status(
-        "  Instalando paquetes core (psycopg2-binary, wheel)...", spinner="dots"
-    ):
+    with step_spinner("Instalando paquetes core (psycopg2-binary, wheel)..."):
         result = run_cmd(
             ["uv", "pip", "install", *CORE_PACKAGES, "--python", str(python_bin)],
             timeout=120,
         )
     if result.returncode == 0:
-        console.print("  [green]✓[/green] Paquetes core instalados")
+        console.print(f"  {OK} Paquetes core instalados")
     else:
         console.print(
-            f"  [red]✗[/red] Error instalando paquetes core: {result.stderr.strip()[:300]}"
+            f"  {ERR} Error instalando paquetes core: {result.stderr.strip()[:300]}"
         )
 
 
@@ -304,15 +316,14 @@ def install_requirements(
             req_sources.append((tenant_req, tenant.display_name))
 
     if not req_sources:
-        console.print("  [yellow]⚠[/yellow] No se encontraron requirements.txt")
+        console.print(f"  {WARN} No se encontraron requirements.txt")
         return True
 
     all_ok = True
     for req_file, label in req_sources:
-        with console.status(f"  Instalando dependencias de {label}...", spinner="dots"):
-            ok = _pip_install(req_file, python_bin, label, odoo_version)
+        ok = _pip_install(req_file, python_bin, label, odoo_version)
         if ok:
-            console.print(f"  [green]✓[/green] Dependencias de {label} instaladas")
+            console.print(f"  {OK} Dependencias de {label} instaladas")
         else:
             all_ok = False
 
@@ -320,20 +331,19 @@ def install_requirements(
     missing = _verify_critical_packages(python_bin)
     if missing:
         console.print(
-            f"\n  [red]✗ Módulos críticos faltantes después de instalar: {', '.join(missing)}[/red]"
+            f"\n  {ERR} Módulos críticos faltantes después de instalar: {', '.join(missing)}"
         )
         console.print("  Intentando reinstalar...")
-        result = run_cmd(
-            ["uv", "pip", "install", *missing, "--python", str(python_bin)],
-            timeout=120,
-        )
-        if result.returncode == 0:
-            console.print(
-                "  [green]✓[/green] Módulos críticos reinstalados correctamente"
+        with step_spinner(f"Reinstalando {', '.join(missing)}..."):
+            result = run_cmd(
+                ["uv", "pip", "install", *missing, "--python", str(python_bin)],
+                timeout=120,
             )
+        if result.returncode == 0:
+            console.print(f"  {OK} Módulos críticos reinstalados correctamente")
         else:
             console.print(
-                f"  [red]✗[/red] No se pudo instalar: {', '.join(missing)}\n"
+                f"  {ERR} No se pudo instalar: {', '.join(missing)}\n"
                 f"  {result.stderr.strip()[:300]}"
             )
             all_ok = False

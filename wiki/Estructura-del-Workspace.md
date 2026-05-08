@@ -67,10 +67,14 @@ Configuraciones de debug generadas automaticamente:
 
 | Config | Descripcion |
 |--------|-------------|
-| **Odoo - Community** | Arranca Odoo base sin tenants |
-| **{Nombre Proyecto}** | Arranca con addons del proyecto (+ Enterprise si aplica) |
-| **Odoo - Shell** | Consola interactiva |
-| **Odoo - Update module** | Actualiza un modulo (`-u module_name`) |
-| **Odoo - Install module** | Instala un modulo (`-i module_name`) |
+| **Odoo - Community** | Arranca Odoo base con `db-filter=community-test` |
+| **{Nombre Proyecto}** | Una entrada por tenant: arranca con sus addons (+ Enterprise si aplica) y su `db-filter` |
 
-Cada config incluye `"python"` apuntando al venv correcto, `preLaunchTask` que levanta Docker, y `--dev=reload` para hot-reload.
+Cada config incluye `"python"` apuntando al venv correcto segun la version de
+Odoo del tenant, `preLaunchTask` que levanta Docker, y `--dev=reload,qweb,werkzeug,xml`
+para hot-reload.
+
+Para shell, instalar o actualizar modulos no se usa `launch.json`: hay
+comandos dedicados (`oolab open-shell`, `oolab module-install`,
+`oolab module-update`) que resuelven venv, addons-path y `odoo.conf`
+automaticamente desde `oolab.yaml`. Ver [[Comandos]].

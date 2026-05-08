@@ -4,14 +4,12 @@ from pathlib import Path
 
 import typer
 from jinja2 import Environment, PackageLoader, select_autoescape
-from rich.console import Console
 
 from oolab import __version__ as oolab_version
 from oolab.cli import app
 from oolab.config import WorkspaceConfig, find_workspace
+from oolab.console import ERR, OK, console
 from oolab.utils import detect_addon_dirs
-
-console = Console()
 
 
 def get_platform_arch() -> str:
@@ -92,7 +90,7 @@ def generate_all(workspace_path: Path, config: WorkspaceConfig):
     for template_name, output_path in files:
         render_and_write(env, template_name, output_path, context)
         rel_path = output_path.relative_to(workspace_path)
-        console.print(f"  [green]✓[/green] {rel_path}")
+        console.print(f"  {OK} {rel_path}")
 
 
 @app.command()
@@ -101,13 +99,11 @@ def generate():
     try:
         workspace_path = find_workspace()
     except FileNotFoundError as e:
-        console.print(f"\n  [red]✗ {e}[/red]\n")
+        console.print(f"\n  {ERR} {e}\n")
         raise typer.Exit(1) from None
 
     config = WorkspaceConfig.load(workspace_path)
 
-    console.print("\n  [bold blue]Generando configuraciones...[/bold blue]\n")
+    console.print("\n  [heading]Generando configuraciones...[/heading]\n")
     generate_all(workspace_path, config)
-    console.print(
-        "\n  [bold green]Configuraciones generadas correctamente.[/bold green]\n"
-    )
+    console.print("\n  [success]Configuraciones generadas correctamente.[/success]\n")
