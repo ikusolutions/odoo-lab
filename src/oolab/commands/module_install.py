@@ -82,4 +82,6 @@ def module_install(
         console.print(f"\n  {OK} Módulos instalados: {', '.join(mods)}\n")
     else:
         console.print(f"\n  {ERR} odoo-bin terminó con código {rc}\n")
+        if _captured:
+            console.print("".join(_captured[-60:]), markup=False, highlight=False)
         raise typer.Exit(rc)

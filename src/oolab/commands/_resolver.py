@@ -63,7 +63,8 @@ def resolve_odoo_context(db: str) -> OdooContext:
         enterprise_path = workspace_path / "enterprise"
         if enterprise_path.exists():
             addon_dirs.append(enterprise_path)
-    for t in config.tenants:
+    target_tenants = [tenant] if tenant is not None else config.tenants
+    for t in target_tenants:
         tenant_path = workspace_path / "tenants" / t.name
         detected = detect_addon_dirs(tenant_path)
         if detected:
