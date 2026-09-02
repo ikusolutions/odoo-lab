@@ -20,11 +20,15 @@ def get_platform_arch() -> str:
     return "amd64"
 
 
-def _rel_addon_path(p: Path, workspace_path: Path, is_windows: bool) -> str:
-    """Ruta relativa de addons para launch.json. En Windows con doble backslash
-    (`\\\\`) para JSON válido; en Unix con `/`."""
-    rel = p.relative_to(workspace_path).as_posix()
-    return rel.replace("/", "\\\\") if is_windows else rel
+# Archivos JSON de VSCode cuyos paths deben usar el separador del SO.
+WINDOWS_PATH_TEMPLATES = {"launch.json.j2", "settings.json.j2"}
+
+
+def _to_win_paths(content: str) -> str:
+    """En Windows, VSCode y odoo-bin necesitan `\\\\` en los paths. Todos los `/`
+    de estos JSON son separadores de ruta, así que se convierten a doble
+    backslash (JSON válido = un backslash real)."""
+    return content.replace("/", "\\\\")
 
 
 def get_template_env() -> Environment:
@@ -36,12 +40,18 @@ def get_template_env() -> Environment:
 
 
 def render_and_write(
-    env: Environment, template_name: str, output_path: Path, context: dict
+    env: Environment,
+    template_name: str,
+    output_path: Path,
+    context: dict,
+    is_windows: bool = False,
 ):
     """Render a template and write to the output path."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     template = env.get_template(template_name)
     content = template.render(**context)
+    if is_windows and template_name in WINDOWS_PATH_TEMPLATES:
+        content = _to_win_paths(content)
     output_path.write_text(content, encoding="utf-8")
 
 
@@ -73,7 +83,7 @@ def generate_all(workspace_path: Path, config: WorkspaceConfig):
             {
                 **t.to_dict(),
                 "addon_paths": [
-                    _rel_addon_path(p, workspace_path, is_windows)
+                    p.relative_to(workspace_path).as_posix()
                     for p in detect_addon_dirs(workspace_path / "tenants" / t.name)
                 ],
             }
@@ -97,7 +107,7 @@ def generate_all(workspace_path: Path, config: WorkspaceConfig):
     ]
 
     for template_name, output_path in files:
-        render_and_write(env, template_name, output_path, context)
+        render_and_write(env, template_name, output_path, context, is_windows)
         rel_path = output_path.relative_to(workspace_path)
         console.print(f"  {OK} {rel_path}")
 
