@@ -16,6 +16,14 @@ CORE_PACKAGES = [
     "lxml-html-clean",  # required by lxml>=5.0; harmless on lxml<5
 ]
 
+# Instalados en todo venv aunque no estén en requirements.txt: widget de
+# teléfono, extracción de PDF y auto-reload de Odoo.
+DEFAULT_PACKAGES = [
+    "phonenumbers",
+    "pdfminer.six",
+    "watchdog",
+]
+
 # Packages that, if present in requirements.txt as source builds,
 # should be replaced with their binary equivalent
 BINARY_ALTERNATIVES = {
@@ -223,14 +231,15 @@ def _pip_install(
 
 
 def _install_core_packages(python_bin: Path) -> None:
-    """Install critical packages explicitly — never rely on requirements.txt for these."""
-    with step_spinner("Instalando paquetes core (psycopg2-binary, wheel)..."):
+    """Install critical + default packages explicitly — never rely on requirements.txt for these."""
+    packages = [*CORE_PACKAGES, *DEFAULT_PACKAGES]
+    with step_spinner("Instalando paquetes core y por defecto..."):
         result = run_cmd(
-            ["uv", "pip", "install", *CORE_PACKAGES, "--python", str(python_bin)],
-            timeout=120,
+            ["uv", "pip", "install", *packages, "--python", str(python_bin)],
+            timeout=180,
         )
     if result.returncode == 0:
-        console.print(f"  {OK} Paquetes core instalados")
+        console.print(f"  {OK} Paquetes core y por defecto instalados")
     else:
         console.print(
             f"  {ERR} Error instalando paquetes core: {result.stderr.strip()[:300]}"

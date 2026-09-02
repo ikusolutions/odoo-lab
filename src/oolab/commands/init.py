@@ -5,7 +5,12 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 
 from oolab.cli import app, print_banner
-from oolab.commands.doctor import DEPENDENCIES, check_dependency, offer_install_uv
+from oolab.commands.doctor import (
+    DEPENDENCIES,
+    check_dependency,
+    offer_install_psql,
+    offer_install_uv,
+)
 from oolab.commands.generate import generate_all
 from oolab.config import Tenant, WorkspaceConfig
 from oolab.console import ERR, INFO, OK, WARN, console
@@ -39,6 +44,9 @@ def check_system_deps() -> bool:
             console.print(f"  {WARN} uv no encontrado")
             if not offer_install_uv():
                 all_ok = False
+        elif dep["name"] == "psql":
+            console.print(f"  {WARN} psql no encontrado (client tools)")
+            offer_install_psql()
         else:
             console.print(f"  {ERR} {dep['name']} no encontrado")
             console.print(f"    {dep['hint']}")

@@ -1,7 +1,7 @@
 services:
   db:
     platform: linux/{{ platform }}
-    image: postgres:{{ postgres_version }}
+    image: pgvector/pgvector:pg{{ postgres_version }}
     container_name: psql
     ports:
       - "{{ postgres_port }}:5432"

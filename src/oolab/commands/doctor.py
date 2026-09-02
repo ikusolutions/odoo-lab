@@ -1,4 +1,5 @@
 import subprocess
+import sys
 
 import typer
 from rich.panel import Panel
@@ -7,6 +8,14 @@ from rich.table import Table
 from oolab.cli import app
 from oolab.console import console
 from oolab.utils import run_cmd
+
+# Comando de instalación de las PostgreSQL client tools por SO. En Linux Odoo
+# usa pg_dump/pg_restore vía estas tools para backup/restore de BD.
+PSQL_INSTALL_CMD = {
+    "darwin": "brew install libpq && brew link --force libpq",
+    "win32": "winget install -e --id PostgreSQL.PostgreSQL",
+    "linux": "sudo apt-get install -y postgresql-client",
+}
 
 DEPENDENCIES = [
     {
@@ -39,6 +48,14 @@ DEPENDENCIES = [
         "required": True,
         "hint": "Install Python 3: https://www.python.org/downloads/",
     },
+    {
+        "name": "psql",
+        "cmd": ["psql", "--version"],
+        "required": False,
+        "hint": PSQL_INSTALL_CMD.get(
+            sys.platform, "Instala las PostgreSQL client tools"
+        ),
+    },
 ]
 
 
@@ -52,6 +69,33 @@ def check_dependency(dep: dict) -> tuple[bool, str]:
         return False, ""
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return False, ""
+
+
+def offer_install_psql() -> bool:
+    """Ofrece instalar las PostgreSQL client tools con el comando del SO."""
+    cmd = PSQL_INSTALL_CMD.get(sys.platform)
+    if not cmd:
+        console.print(
+            "  Instala las PostgreSQL client tools manualmente.", style="yellow"
+        )
+        return False
+    if not typer.confirm(f"  psql no encontrado. ¿Instalar con '{cmd}'?", default=True):
+        return False
+    console.print("  Instalando psql...", style="blue")
+    try:
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=300
+        )
+    except subprocess.TimeoutExpired:
+        console.print("  ✗ Timeout instalando psql", style="red")
+        return False
+    if result.returncode == 0:
+        console.print("  ✓ psql instalado", style="green")
+        return True
+    console.print(
+        f"  ✗ Error instalando psql: {result.stderr.strip()[:300]}", style="red"
+    )
+    return False
 
 
 def offer_install_uv() -> bool:
@@ -93,6 +137,7 @@ def doctor():
 
     all_ok = True
     uv_missing = False
+    psql_missing = False
 
     for dep in DEPENDENCIES:
         ok, version = check_dependency(dep)
@@ -101,6 +146,9 @@ def doctor():
         elif dep["name"] == "uv":
             uv_missing = True
             table.add_row(dep["name"], "[warn]⚠[/warn]", "No encontrado")
+        elif dep["name"] == "psql":
+            psql_missing = True
+            table.add_row(dep["name"], "[warn]⚠[/warn]", "No encontrado (client tools)")
         elif dep["required"]:
             all_ok = False
             table.add_row(dep["name"], "[error]✗[/error]", dep["hint"])
@@ -116,6 +164,10 @@ def doctor():
             all_ok = False
             console.print("\n  [warn]uv es necesario. Instálalo manualmente:[/warn]")
             console.print("  curl -LsSf https://astral.sh/uv/install.sh | sh\n")
+
+    if psql_missing:
+        console.print()
+        offer_install_psql()
 
     console.print()
     if all_ok:

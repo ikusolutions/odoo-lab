@@ -20,6 +20,13 @@ def get_platform_arch() -> str:
     return "amd64"
 
 
+def _rel_addon_path(p: Path, workspace_path: Path, is_windows: bool) -> str:
+    """Ruta relativa de addons para launch.json. En Windows con doble backslash
+    (`\\\\`) para JSON válido; en Unix con `/`."""
+    rel = p.relative_to(workspace_path).as_posix()
+    return rel.replace("/", "\\\\") if is_windows else rel
+
+
 def get_template_env() -> Environment:
     return Environment(
         loader=PackageLoader("oolab", "templates"),
@@ -46,6 +53,8 @@ def generate_all(workspace_path: Path, config: WorkspaceConfig):
         t.enterprise for t in config.tenants
     )
 
+    is_windows = sys.platform == "win32"
+
     context = {
         "name": config.name,
         "odoo_version": config.odoo_version,
@@ -64,14 +73,14 @@ def generate_all(workspace_path: Path, config: WorkspaceConfig):
             {
                 **t.to_dict(),
                 "addon_paths": [
-                    str(p.relative_to(workspace_path))
+                    _rel_addon_path(p, workspace_path, is_windows)
                     for p in detect_addon_dirs(workspace_path / "tenants" / t.name)
                 ],
             }
             for t in config.tenants
         ],
         "platform": get_platform_arch(),
-        "is_windows": sys.platform == "win32",
+        "is_windows": is_windows,
         "oolab_version": oolab_version,
     }
 
