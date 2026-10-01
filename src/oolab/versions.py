@@ -5,6 +5,7 @@ ODOO_VERSIONS = {
     "17": {"python": "3.10", "postgres_min": "16"},
     "18": {"python": "3.11", "postgres_min": "16"},
     "19": {"python": "3.11", "postgres_min": "16"},
+    "20": {"python": "3.12", "postgres_min": "16"},
 }
 
 

@@ -25,7 +25,7 @@ Desarrollado por **[IKU Solutions SAS](https://www.iku.solutions)** | Autor: **Y
 ### Caracteristicas
 
 - **Multi-proyecto** — multiples clientes/tenants en un solo workspace
-- **Multi-version** — Odoo 15, 16, 17, 18 y 19 con venvs separados
+- **Multi-version** — Odoo 15, 16, 17, 18, 19 y 20 con venvs separados
 - **Enterprise ready** — integra Odoo Enterprise (requiere licencia propia)
 - **VSCode integrado** — `launch.json` con una entrada de debug por proyecto (F5)
 - **Gestion de modulos por CLI** — `module-install`, `module-update` y `open-shell` con barra de progreso parseando logs de `odoo-bin` en vivo

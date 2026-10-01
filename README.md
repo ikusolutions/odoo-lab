@@ -12,7 +12,7 @@
 **CLI para crear y gestionar workspaces de desarrollo Odoo multi-proyecto y multi-versión.**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Odoo 15-19](https://img.shields.io/badge/odoo-15%20|%2016%20|%2017%20|%2018%20|%2019-blueviolet.svg)](https://www.odoo.com/)
+[![Odoo 15-20](https://img.shields.io/badge/odoo-15%20|%2016%20|%2017%20|%2018%20|%2019%20|%2020-blueviolet.svg)](https://www.odoo.com/)
 [![License: LGPL-3](https://img.shields.io/badge/license-LGPL--3-green.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 
 > Desarrollado por **[IKU Solutions SAS](https://www.iku.solutions)** | Autor: **Yan Chirino** \<yan.chirino@iku.solutions\>
@@ -24,7 +24,7 @@
 `oolab` automatiza la creación y gestión de entornos de desarrollo Odoo. Permite trabajar con múltiples proyectos de clientes en un solo workspace, compartiendo el framework Odoo (Community + Enterprise opcional), con configuraciones de debug individuales por proyecto en VSCode.
 
 Resuelve problemas reales del día a día:
-- Múltiples clientes con distintas versiones de Odoo (15, 16, 17, 18, 19)
+- Múltiples clientes con distintas versiones de Odoo (15, 16, 17, 18, 19, 20)
 - Proyectos con estructuras de addons no estándar (`vendor/OCA/`, `vendor/Cybrosys/`, `src/`, etc.)
 - Incompatibilidades de paquetes Python en macOS arm64 (psycopg2, cryptography, lxml, gevent)
 - Configuración manual repetitiva de `launch.json`, `odoo.conf` y `docker-compose`
@@ -32,7 +32,7 @@ Resuelve problemas reales del día a día:
 ### Características principales
 
 - **Multi-proyecto**: gestiona múltiples clientes/tenants en un solo workspace
-- **Multi-versión**: soporte para Odoo 15, 16, 17, 18 y 19 con venvs separados por versión
+- **Multi-versión**: soporte para Odoo 15, 16, 17, 18, 19 y 20 con venvs separados por versión
 - **Enterprise ready**: integra Odoo Enterprise via git o copia local (requiere licencia propia)
 - **VSCode integrado**: genera `launch.json` con una entrada de debug por proyecto (F5 → arranca Odoo con su `db-filter`)
 - **Gestión de módulos por CLI**: `module-install`, `module-update` y `open-shell` con barra de progreso parseando logs de `odoo-bin` en vivo
@@ -265,6 +265,7 @@ tenants:
 | 17 | 3.10 | 16 |
 | 18 | 3.11 | 16 |
 | 19 | 3.11 | 16 |
+| 20 | 3.12 | 16 |
 
 Cada versión usa un venv separado (`.venv-v15`, `.venv-v16`, etc.). Los proyectos con la misma versión comparten el venv.
 

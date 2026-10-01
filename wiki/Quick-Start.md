@@ -11,7 +11,7 @@ oolab init
 ```
 
 El wizard te preguntara:
-1. **Version de Odoo** (15, 16, 17, 18, 19)
+1. **Version de Odoo** (15, 16, 17, 18, 19, 20)
 2. **Enterprise** (si/no — necesitas licencia propia)
 3. **Primer proyecto** (nombre, clonar repo o crear vacio)
 

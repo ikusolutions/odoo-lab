@@ -150,15 +150,17 @@ def add(
             branch,
             f"Odoo Community {branch}",
         )
-    else:
-        ensure_branch(odoo_path, branch, "Odoo Community")
+    elif not ensure_branch(odoo_path, branch, "Odoo Community"):
+        raise typer.Exit(1)
 
     # Ensure enterprise is available and on the correct branch
     if is_enterprise:
         ensure_enterprise(workspace_path, config, branch, normalized)
         ent_path = workspace_path / "enterprise"
-        if ent_path.exists() and (ent_path / ".git").exists():
-            ensure_branch(ent_path, branch, "Enterprise")
+        if (ent_path / ".git").exists() and not ensure_branch(
+            ent_path, branch, "Enterprise"
+        ):
+            raise typer.Exit(1)
 
     # Ensure venv exists for this Odoo version, AFTER checkouts
     venv_name = get_venv_name(normalized)

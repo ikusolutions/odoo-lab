@@ -64,6 +64,11 @@ VERSION_SPECIFIC_FIXES: dict[str, dict[str, str]] = {
         "jinja2": "Jinja2>=2.11.1,<3.0",
         "markupsafe": "MarkupSafe>=1.1.0,<2.0",
     },
+    "20": {
+        # pyopenssl==24.1.0 de v20 exige cryptography 42; lxml<5 global no aplica en py3.12+
+        "cryptography": "cryptography>=42.0.8,<43.0.0",
+        "lxml": "lxml>=5.2.1",
+    },
 }
 
 # Critical imports to verify after install — maps import name to pip package

@@ -194,18 +194,18 @@ def get_current_branch(repo_path: Path) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
-def ensure_branch(repo_path: Path, target_branch: str, label: str):
+def ensure_branch(repo_path: Path, target_branch: str, label: str) -> bool:
     current = get_current_branch(repo_path)
     if current == target_branch:
         console.print(f"  {OK} {label} en branch {target_branch}")
-        return
+        return True
 
     console.print(
         f"  [info_mark]ℹ[/info_mark] {label} en branch [warn]{current}[/warn], cambiando a [accent]{target_branch}[/accent]..."
     )
 
     with step_spinner(f"Cambiando {label} a {target_branch}..."):
-        run_cmd(
+        fetch = run_cmd(
             ["git", "fetch", "--depth", "1", "origin", target_branch],
             cwd=str(repo_path),
             timeout=300,
@@ -220,6 +220,10 @@ def ensure_branch(repo_path: Path, target_branch: str, label: str):
 
     if result.returncode == 0:
         console.print(f"  {OK} {label} cambiado a branch {target_branch}")
-    else:
-        console.print(f"  {ERR} No se pudo cambiar {label} a branch {target_branch}")
-        console.print(f"  [muted]  {result.stderr.strip()}[/muted]")
+        return True
+
+    console.print(f"  {ERR} No se pudo cambiar {label} a branch {target_branch}")
+    # Si el fetch falló, su error (red, SSH, permisos) es la causa real, no el del checkout
+    detail = fetch.stderr if fetch.returncode != 0 else result.stderr
+    console.print(f"  [muted]  {detail.strip()}[/muted]")
+    return False
